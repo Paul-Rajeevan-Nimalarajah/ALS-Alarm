@@ -3,6 +3,7 @@ package com.example.alsalarm
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -19,13 +20,17 @@ class AlarmService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
     private lateinit var ringtone: Ringtone
+    private var dismissLuxValue: Float = 50f // Default value
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
 
+        val sharedPrefs = getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
+        dismissLuxValue = sharedPrefs.getFloat("dismissLux", 50f)
+
         val notification = NotificationCompat.Builder(this, "alarm_channel")
             .setContentTitle("Alarm")
-            .setContentText("Your alarm is ringing.")
+            .setContentText("Your alarm is ringing. Dismiss at $dismissLuxValue lux.")
             .setSmallIcon(R.mipmap.ic_launcher)
             .build()
 
@@ -47,7 +52,7 @@ class AlarmService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
-            if (event.values[0] > 50) { // Dismiss alarm if light level is greater than 50 lux
+            if (event.values[0] > dismissLuxValue) {
                 ringtone.stop()
                 sensorManager.unregisterListener(this)
                 stopForeground(true)

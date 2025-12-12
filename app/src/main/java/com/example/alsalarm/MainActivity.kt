@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -16,16 +17,11 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.example.alsalarm.ui.theme.ALSAlarmTheme
 import java.text.SimpleDateFormat
@@ -40,15 +37,6 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
-
-    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-        if (isGranted) {
-            // Permission is granted. Continue the action or workflow in your app.
-        } else {
-            Toast.makeText(this, "Notification permission is required for alarms.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -62,123 +50,159 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
-    @Composable
-    fun AlarmScreen(modifier: Modifier = Modifier) {
-        var showTimePicker by remember { mutableStateOf(false) }
-        val state = rememberTimePickerState()
-        val formatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
-        var luxValue by remember { mutableStateOf("-") }
-        val context = LocalContext.current
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlarmScreen(modifier: Modifier = Modifier) {
+    var showTimePicker by remember { mutableStateOf(false) }
+    val timePickerState = rememberTimePickerState()
+    var luxValue by remember { mutableStateOf("Listening...") }
+    var alarmTimeText by remember { mutableStateOf("No Alarm Set") }
+    val context = LocalContext.current
+    val formatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    val sharedPrefs = remember { context.getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE) }
+    
+    var sliderPosition by remember { mutableStateOf(sharedPrefs.getFloat("dismissLux", 50f)) }
 
-        DisposableEffect(Unit) {
-            val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-            val lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-            val sensorListener = object : SensorEventListener {
-                override fun onSensorChanged(event: SensorEvent?) {
-                    if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
-                        luxValue = event.values[0].toString()
-                    }
-                }
+    val alarmManager = remember { context.getSystemService(Context.ALARM_SERVICE) as AlarmManager }
+    var timeToSet by remember { mutableStateOf<Calendar?>(null) }
 
-                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-            }
-
-            if (lightSensor != null) {
-                sensorManager.registerListener(sensorListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                Toast.makeText(context, "Notification permission granted! Setting alarm.", Toast.LENGTH_SHORT).show()
+                timeToSet?.let { setAlarm(context, it) }
             } else {
-                luxValue = "Not found"
-            }
-
-            onDispose {
-                sensorManager.unregisterListener(sensorListener)
+                Toast.makeText(context, "Notification permission is required to set alarms.", Toast.LENGTH_LONG).show()
             }
         }
+    )
 
-        Column(
-            modifier = modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("10:00 AM", fontSize = 48.sp)
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = { showTimePicker = true }) {
-                Text("Set Alarm")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Current Lux: $luxValue")
-
-            if (showTimePicker) {
-                TimePickerDialog(
-                    onCancel = { showTimePicker = false },
-                    onConfirm = {
-                        val cal = Calendar.getInstance()
-                        cal.set(Calendar.HOUR_OF_DAY, state.hour)
-                        cal.set(Calendar.MINUTE, state.minute)
-                        cal.isLenient = false
-                        setAlarm(cal.timeInMillis)
-                        showTimePicker = false
-                    },
-                ) {
-                    TimePicker(state = state)
+    DisposableEffect(context) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+        val sensorListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
+                    luxValue = "%.2f".format(event.values[0])
                 }
             }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        if (lightSensor != null) {
+            sensorManager.registerListener(sensorListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+        } else {
+            luxValue = "Not available"
+        }
+
+        onDispose {
+            sensorManager.unregisterListener(sensorListener)
         }
     }
 
-    private fun setAlarm(timeInMillis: Long) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))
-            startActivity(intent)
-            return
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(alarmTimeText, fontSize = 48.sp)
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = { showTimePicker = true }) {
+            Text("Set Alarm")
         }
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Current Lux: $luxValue")
+        Spacer(modifier = Modifier.height(32.dp))
+        Text("Dismiss alarm at ${sliderPosition.toInt()} Lux")
+        Slider(
+            value = sliderPosition,
+            onValueChange = { sliderPosition = it },
+            valueRange = 0f..1000f,
+            onValueChangeFinished = {
+                with(sharedPrefs.edit()) {
+                    putFloat("dismissLux", sliderPosition)
+                    apply()
+                }
             }
-            return
-        }
+        )
 
-        alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-        Toast.makeText(this, "Alarm set", Toast.LENGTH_SHORT).show()
+        if (showTimePicker) {
+            TimePickerDialog(
+                onCancel = { showTimePicker = false },
+                onConfirm = {
+                    showTimePicker = false
+                    val cal = Calendar.getInstance()
+                    cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                    cal.set(Calendar.MINUTE, timePickerState.minute)
+                    cal.set(Calendar.SECOND, 0)
+
+                    if (cal.timeInMillis <= System.currentTimeMillis()) {
+                        cal.add(Calendar.DAY_OF_YEAR, 1)
+                    }
+                    
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                        Toast.makeText(context, "ACTION REQUIRED: Please grant alarm permission.", Toast.LENGTH_LONG).show()
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).also { context.startActivity(it) }
+                    } else {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            Toast.makeText(context, "Requesting notification permission...", Toast.LENGTH_SHORT).show()
+                            timeToSet = cal
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            setAlarm(context, cal)
+                            alarmTimeText = formatter.format(cal.time)
+                        }
+                    }
+                },
+            ) {
+                TimePicker(state = timePickerState)
+            }
+        }
     }
 }
 
+private fun setAlarm(context: Context, cal: Calendar) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val intent = Intent(context, AlarmReceiver::class.java)
+    
+    // THE DEFINITIVE FIX: Use FLAG_UPDATE_CURRENT to ensure the alarm is always updated correctly.
+    // This requires the PendingIntent to be mutable.
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        0, 
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+    )
+
+    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+    
+    val formatter = SimpleDateFormat("hh:mm a", Locale.getDefault())
+    Toast.makeText(context, "Alarm set for ${formatter.format(cal.time)}!", Toast.LENGTH_SHORT).show()
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimePickerDialog(onCancel: () -> Unit, onConfirm: () -> Unit, content: @Composable () -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onCancel) {
+fun TimePickerDialog(
+    onCancel: () -> Unit, 
+    onConfirm: () -> Unit, 
+    content: @Composable () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             tonalElevation = 6.dp,
-            modifier = Modifier
-                .width(IntrinsicSize.Min)
-                .height(IntrinsicSize.Min)
-                .wrapContentWidth()
-                .wrapContentHeight()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 content()
-                Row(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .fillMaxWidth()
-                ) {
+                Row(modifier = Modifier.height(40.dp).fillMaxWidth()) {
                     Spacer(modifier = Modifier.weight(1f))
-                    Button(onClick = onCancel) {
-                        Text("Cancel")
-                    }
+                    TextButton(onClick = onCancel) { Text("Cancel") }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Button(onClick = onConfirm) {
-                        Text("OK")
-                    }
+                    TextButton(onClick = onConfirm) { Text("OK") }
                 }
             }
         }
@@ -189,6 +213,6 @@ fun TimePickerDialog(onCancel: () -> Unit, onConfirm: () -> Unit, content: @Comp
 @Composable
 fun AlarmScreenPreview() {
     ALSAlarmTheme {
-        //AlarmScreen()
+        AlarmScreen()
     }
 }
