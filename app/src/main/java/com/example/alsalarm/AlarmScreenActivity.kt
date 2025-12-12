@@ -1,5 +1,6 @@
 package com.example.alsalarm
 
+import android.app.NotificationManager
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -135,6 +136,11 @@ class AlarmScreenActivity : ComponentActivity(), SensorEventListener {
                 // Once armed, wait for the lux value to go high to dismiss
                 if (lux > dismissLuxValue) {
                     ringtone?.stop()
+
+                    // THE FIX: Cancel the notification when the alarm is dismissed
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.cancel(1) // The ID must match the one in AlarmReceiver
+
                     finishAndRemoveTask()
                 }
             }
