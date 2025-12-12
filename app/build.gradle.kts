@@ -62,6 +62,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics") // This library contains the 'Color' class
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.compose.material:material:1.6.7")
+
 
     // For UI previews in Android Studio
     implementation("androidx.compose.ui:ui-tooling-preview")
