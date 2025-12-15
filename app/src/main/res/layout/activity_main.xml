@@ -82,49 +82,56 @@
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="S" />
+                    android:text="Su"
+                    android:tag="Su" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/mondayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="M" />
+                    android:text="M"
+                    android:tag="M" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/tuesdayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="T" />
+                    android:text="Tu"
+                    android:tag="Tu" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/wednesdayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="W" />
+                    android:text="W"
+                    android:tag="W" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/thursdayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="T" />
+                    android:text="Th"
+                    android:tag="Th" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/fridayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="F" />
+                    android:text="F"
+                    android:tag="F" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/saturdayChip"
                     style="@style/Widget.App.Chip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="S" />
+                    android:text="Sa"
+                    android:tag="Sa" />
 
             </com.google.android.material.chip.ChipGroup>
 
