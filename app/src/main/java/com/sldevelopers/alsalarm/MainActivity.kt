@@ -30,6 +30,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -46,6 +48,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var volumeSeekBar: SeekBar
     private lateinit var ringtoneButton: Button
     private lateinit var pinEnabledSwitch: SwitchMaterial
+    private lateinit var dayPickerGroup: ChipGroup
     private lateinit var pinEditText: EditText
     private lateinit var savePinButton: Button
     private lateinit var setAlarmButton: Button
@@ -89,6 +92,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         volumeSeekBar = findViewById(R.id.volumeSeekBar)
         ringtoneButton = findViewById(R.id.ringtoneButton)
         pinEnabledSwitch = findViewById(R.id.pinEnabledSwitch)
+        dayPickerGroup = findViewById(R.id.dayPickerGroup)
         pinEditText = findViewById(R.id.pinEditText)
         setAlarmButton = findViewById(R.id.setAlarmButton)
         resetAlarmButton = findViewById(R.id.setAlarmButton2)
@@ -149,6 +153,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val pinEnabled = sharedPrefs.getBoolean("pinEnabled", false)
         pinEnabledSwitch.isChecked = pinEnabled
         updatePinUiState(pinEnabled)
+
+        val selectedDays = sharedPrefs.getStringSet("selectedDays", emptySet()) ?: emptySet()
+        for (i in 0 until dayPickerGroup.childCount) {
+            val chip = dayPickerGroup.getChildAt(i) as Chip
+            if (selectedDays.contains(chip.text.toString())) {
+                chip.isChecked = true
+            }
+        }
 
         // Restore alarm time text and UI state if a valid alarm is set
         val alarmTimeMillis = sharedPrefs.getLong("alarmTimeMillis", -1L)
@@ -217,6 +229,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             updatePinUiState(isChecked)
         }
 
+        dayPickerGroup.setOnCheckedChangeListener { group, checkedId ->
+            saveSelectedDays()
+        }
+
         savePinButton.setOnClickListener { view ->
             if (savePinButton.text.toString().equals("Save PIN", ignoreCase = true)) {
                 val pin = pinEditText.text.toString()
@@ -242,12 +258,30 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    private fun saveSelectedDays() {
+        val sharedPrefs = getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
+        val selectedChips = mutableSetOf<String>()
+        for (i in 0 until dayPickerGroup.childCount) {
+            val chip = dayPickerGroup.getChildAt(i) as Chip
+            if (chip.isChecked) {
+                selectedChips.add(chip.text.toString())
+            }
+        }
+        with(sharedPrefs.edit()) {
+            putStringSet("selectedDays", selectedChips)
+            apply()
+        }
+    }
+
     private fun setSettingsEnabled(enabled: Boolean) {
         luxEditText.isEnabled = enabled
         luxThresholdSeekBar.isEnabled = enabled
         volumeSeekBar.isEnabled = enabled
         ringtoneButton.isEnabled = enabled
         pinEnabledSwitch.isEnabled = enabled
+        for (i in 0 until dayPickerGroup.childCount) {
+            dayPickerGroup.getChildAt(i).isEnabled = enabled
+        }
         resetAlarmButton.isEnabled = enabled
 
         if(enabled) {
@@ -383,23 +417,43 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Repeating alarm logic
         val sharedPrefs = getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
-        
+        val selectedDays = sharedPrefs.getStringSet("selectedDays", emptySet()) ?: emptySet()
+
         if (cal.timeInMillis <= System.currentTimeMillis()) {
             cal.add(Calendar.DAY_OF_YEAR, 1)
         }
-        val triggerTime = cal.timeInMillis
 
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-        
+        if (selectedDays.isNotEmpty()) {
+            // Schedule repeating alarm for the selected days
+            val dayMapping = mapOf("S" to Calendar.SUNDAY, "M" to Calendar.MONDAY, "T" to Calendar.TUESDAY, "W" to Calendar.WEDNESDAY, "Th" to Calendar.THURSDAY, "F" to Calendar.FRIDAY, "Sa" to Calendar.SATURDAY)
+            val calendarDays = selectedDays.mapNotNull { dayMapping[it] }
+
+            for (day in calendarDays) {
+                val alarmCal = cal.clone() as Calendar
+                alarmCal.set(Calendar.DAY_OF_WEEK, day)
+                
+                if (alarmCal.timeInMillis < System.currentTimeMillis()) {
+                    alarmCal.add(Calendar.WEEK_OF_YEAR, 1)
+                }
+
+                val dailyIntent = Intent(this, AlarmReceiver::class.java)
+                val dailyPendingIntent = PendingIntent.getBroadcast(this, day, dailyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, alarmCal.timeInMillis, AlarmManager.INTERVAL_DAY * 7, dailyPendingIntent)
+            }
+
+        } else {
+            // Schedule a single, one-time alarm
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pendingIntent)
+        }
+
         val formatter = SimpleDateFormat("hh:mm a", Locale.getDefault())
         val formattedTime = formatter.format(cal.time)
         alarmTimeText.text = formattedTime
         Toast.makeText(this, "Alarm set for $formattedTime!", Toast.LENGTH_SHORT).show()
 
         with(sharedPrefs.edit()) {
-            putLong("alarmTimeMillis", triggerTime)
+            putLong("alarmTimeMillis", cal.timeInMillis)
             putString("alarmTimeText", formattedTime)
             apply()
         }
@@ -410,13 +464,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun cancelAlarm() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+
+        // Cancel all potential daily alarms
+        for (day in 1..7) {
+            val dailyPendingIntent = PendingIntent.getBroadcast(this, day, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            alarmManager.cancel(dailyPendingIntent)
+        }
+
+        // Also cancel the single, non-repeating alarm
+        val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         alarmManager.cancel(pendingIntent)
+
         alarmTimeText.text = "No Alarm Set"
         pendingAlarmCalendar = null
         Toast.makeText(this, "Alarm canceled!", Toast.LENGTH_SHORT).show()
@@ -432,9 +490,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        // We don't call checkAndRequestPermissions() here on every resume,
-        // as it could be annoying to the user if they deny the permission.
-        // We'll call it right before setting the alarm.
         lightSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }

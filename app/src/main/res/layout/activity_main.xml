@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:orientation="horizontal"
-            app:layout_constraintBottom_toTopOf="@+id/luxValueText"
+            app:layout_constraintBottom_toTopOf="@+id/dayPickerContainer"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/alarmTimeText">
@@ -57,6 +57,79 @@
 
         </LinearLayout>
 
+        <HorizontalScrollView
+            android:id="@+id/dayPickerContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:scrollbars="none"
+            app:layout_constraintBottom_toTopOf="@+id/luxValueText"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/buttonContainer">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/dayPickerGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                app:chipSpacingHorizontal="4dp"
+                app:singleLine="true"
+                app:singleSelection="false">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/sundayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="S" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/mondayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="M" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/tuesdayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="T" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/wednesdayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="W" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/thursdayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="T" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/fridayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="F" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/saturdayChip"
+                    style="@style/Widget.App.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="S" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+        </HorizontalScrollView>
+
         <TextView
             android:id="@+id/luxValueText"
             android:layout_width="wrap_content"
@@ -65,7 +138,7 @@
             android:text="Current Lux: Listening..."
             app:layout_constraintBottom_toTopOf="@+id/luxThresholdLabel"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/buttonContainer" />
+            app:layout_constraintTop_toBottomOf="@+id/dayPickerContainer" />
 
         <TextView
             android:id="@+id/luxThresholdLabel"
