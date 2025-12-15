@@ -107,7 +107,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         setAlarmButton.setOnClickListener {
             if (setAlarmButton.text.toString().equals("Set", ignoreCase = true)) {
-                if (pendingAlarmCalendar != null) {
+                val sharedPrefs = getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
+                val pinEnabled = sharedPrefs.getBoolean("pinEnabled", false)
+                val pinSaved = sharedPrefs.getString("pin", null) != null
+
+                if (pinEnabled && !pinSaved) {
+                    Toast.makeText(this, "Please save a PIN before setting the alarm.", Toast.LENGTH_LONG).show()
+                } else if (pendingAlarmCalendar != null) {
                     if (checkAndRequestPermissions()) {
                         setAlarm(pendingAlarmCalendar!!)
                     }
@@ -307,7 +313,43 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun checkAndRequestPermissions(): Boolean {
-        // ... (Permission checking logic remains the same)
+        // Check for "Appear on Top" permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Permission Required")
+                .setMessage("This app needs permission to appear on top to display the alarm screen. Please grant this permission in the app settings.")
+                .setPositiveButton("Go to Settings") { _, _ ->
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+            return false
+        }
+
+        // Check for "Schedule Exact Alarm" permission
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Intent().also { intent ->
+                    intent.action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                    startActivity(intent)
+                }
+                return false
+            }
+        }
+
+        // Check for "Post Notifications" permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                return false
+            }
+        }
+
         return true
     }
 
@@ -338,7 +380,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             this,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         // Repeating alarm logic
@@ -372,7 +414,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             this,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
         alarmTimeText.text = "No Alarm Set"
@@ -390,7 +432,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        checkAndRequestPermissions()
+        // We don't call checkAndRequestPermissions() here on every resume,
+        // as it could be annoying to the user if they deny the permission.
+        // We'll call it right before setting the alarm.
         lightSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }

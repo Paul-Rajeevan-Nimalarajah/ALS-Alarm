@@ -58,8 +58,8 @@ class AlarmService : Service() {
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .build()
 
-        startSoundAndVibration()
         startForeground(1, notification)
+        startSoundAndVibration()
 
         return START_STICKY
     }

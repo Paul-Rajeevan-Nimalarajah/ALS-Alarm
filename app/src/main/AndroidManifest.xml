@@ -13,7 +13,7 @@
     <!-- Foreground Service & Vibration -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:allowBackup="true"
@@ -38,14 +38,15 @@
             android:name="com.sldevelopers.alsalarm.AlarmScreenActivity"
             android:exported="false"
             android:showWhenLocked="true"
+            android:theme="@style/Theme.ALSAlarm.AlarmScreen"
             android:turnScreenOn="true" />
 
-        <receiver android:name="com.sldevelopers.alsalarm.AlarmReceiver" android:exported="false" />
+        <receiver android:name="com.sldevelopers.alsalarm.AlarmReceiver" android:enabled="true" android:exported="false" />
 
         <service 
             android:name="com.sldevelopers.alsalarm.AlarmService" 
             android:enabled="true" 
-            android:foregroundServiceType="specialUse"/>
+            android:foregroundServiceType="mediaPlayback"/>
 
     </application>
 
