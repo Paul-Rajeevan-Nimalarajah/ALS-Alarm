@@ -1,5 +1,8 @@
 package com.sldevelopers.alsalarm
 
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -27,6 +30,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
     private var currentAlarm: Alarm? = null
     private var isSensorRegistered = false
 
+    private lateinit var alarmLabelTextView: TextView
     private lateinit var luxContainer: LinearLayout
     private lateinit var currentLuxLabel: TextView
     private lateinit var requiredLuxLabel: TextView
@@ -42,6 +46,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
         setContentView(R.layout.activity_alarm_screen)
 
+        alarmLabelTextView = findViewById(R.id.alarmLabelTextView)
         luxContainer = findViewById(R.id.lux_container)
         currentLuxLabel = findViewById(R.id.current_lux_label)
         requiredLuxLabel = findViewById(R.id.required_lux_label)
@@ -51,6 +56,19 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             Log.e("AlarmScreenActivity", "No alarm ID passed to activity")
             finish()
             return
+        }
+
+        val isSnoozed = intent.getBooleanExtra("is_snoozed", false)
+        val snoozeButtonContainer = findViewById<LinearLayout>(R.id.snooze_button_container)
+
+        if (isSnoozed) {
+            snoozeButtonContainer.visibility = View.GONE
+        } else {
+            snoozeButtonContainer.visibility = View.VISIBLE
+            findViewById<Button>(R.id.snooze5minButton).setOnClickListener { snooze(5) }
+            findViewById<Button>(R.id.snooze10minButton).setOnClickListener { snooze(10) }
+            findViewById<Button>(R.id.snooze15minButton).setOnClickListener { snooze(15) }
+            findViewById<Button>(R.id.snooze20minButton).setOnClickListener { snooze(20) }
         }
 
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
@@ -78,6 +96,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setupUI(alarm: Alarm) {
+        alarmLabelTextView.text = alarm.label
         val dismissButton = findViewById<Button>(R.id.dismissButton)
         val pinText = findViewById<EditText>(R.id.pinEditText)
 
@@ -109,6 +128,36 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             } else {
                 Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun snooze(minutes: Int) {
+        currentAlarm?.let { alarm ->
+            stopService(Intent(this, AlarmService::class.java))
+
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(this, AlarmReceiver::class.java).apply {
+                putExtra("alarm_id", alarm.id)
+                putExtra("is_snoozed", true)
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                alarm.id,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val snoozeTime = System.currentTimeMillis() + minutes * 60 * 1000
+
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                snoozeTime,
+                pendingIntent
+            )
+
+            Toast.makeText(this, "Snoozed for $minutes minutes", Toast.LENGTH_SHORT).show()
+            finishAndRemoveTask()
         }
     }
 

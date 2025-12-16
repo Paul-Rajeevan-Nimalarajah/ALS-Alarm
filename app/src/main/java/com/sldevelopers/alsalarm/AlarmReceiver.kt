@@ -18,6 +18,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getIntExtra("alarm_id", -1)
         if (alarmId == -1) return
 
+        val isSnoozed = intent.getBooleanExtra("is_snoozed", false)
+
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra("alarm_id", alarmId)
         }
@@ -27,7 +29,16 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
-        rescheduleNextAlarm(context, alarmId)
+        val activityIntent = Intent(context, AlarmScreenActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra("alarm_id", alarmId)
+            putExtra("is_snoozed", isSnoozed)
+        }
+        context.startActivity(activityIntent)
+
+        if (!isSnoozed) {
+            rescheduleNextAlarm(context, alarmId)
+        }
     }
 
     private fun rescheduleNextAlarm(context: Context, alarmId: Int) {

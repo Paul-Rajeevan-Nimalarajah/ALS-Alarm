@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FF000000"
@@ -7,13 +8,22 @@
     android:orientation="vertical"
     android:padding="32dp">
 
+    <TextView
+        android:id="@+id/alarmLabelTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        tools:text="Alarm Label" />
+
     <LinearLayout
         android:id="@+id/lux_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:visibility="visible"
-        android:gravity="center_horizontal">
+        android:visibility="visible">
 
         <TextView
             android:id="@+id/current_lux_label"
@@ -52,4 +62,52 @@
         android:enabled="false"
         android:text="Dismiss Alarm"
         android:textColor="#FFFFFF" />
+
+    <LinearLayout
+        android:id="@+id/snooze_button_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/snooze5minButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="5 min"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/snooze10minButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="10 min"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/snooze15minButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="15 min"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/snooze20minButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="20 min"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
 </LinearLayout>
