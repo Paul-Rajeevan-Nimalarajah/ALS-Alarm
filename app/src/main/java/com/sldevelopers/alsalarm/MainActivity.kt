@@ -1,6 +1,7 @@
 package com.sldevelopers.alsalarm
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -9,6 +10,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -18,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,7 +33,9 @@ class MainActivity : AppCompatActivity() {
     private val selectedAlarms = mutableListOf<Alarm>()
     private var isSelectionMode = false
     private var isSortedByTime = false
+    private var isFirstLoad = true
 
+    private val sharedPrefs by lazy { getSharedPreferences("AlarmSkippedState", Context.MODE_PRIVATE) }
     private val skippedAlarms = mutableMapOf<Int, Long>()
 
     @SuppressLint("ClickableViewAccessibility")
@@ -38,15 +43,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        if (savedInstanceState != null) {
-            val skippedIds = savedInstanceState.getIntArray("skipped_ids")
-            val skippedTimestamps = savedInstanceState.getLongArray("skipped_timestamps")
-            if (skippedIds != null && skippedTimestamps != null && skippedIds.size == skippedTimestamps.size) {
-                for (i in skippedIds.indices) {
-                    skippedAlarms[skippedIds[i]] = skippedTimestamps[i]
-                }
-            }
-        }
+        loadSkippedAlarms()
 
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -102,12 +99,15 @@ class MainActivity : AppCompatActivity() {
                         .setMessage("Do you want to skip the next alarm or disable it permanently?")
                         .setPositiveButton("Disable") { _, _ ->
                             alarm.isEnabled = false
+                            skippedAlarms.remove(alarm.id)
+                            removeSkippedAlarm(alarm.id)
                             alarmViewModel.update(alarm)
                             AlarmScheduler.cancel(this, alarm)
                         }
                         .setNegativeButton("Skip Once") { _, _ ->
                             val skippedUntil = AlarmScheduler.skipNext(this, alarm)
                             skippedAlarms[alarm.id] = skippedUntil
+                            saveSkippedAlarm(alarm.id, skippedUntil)
                             alarm.skippedUntil = skippedUntil
                             adapter.notifyItemChanged(adapter.getAlarms().indexOf(alarm))
                             updateNextAlarmHighlight(adapter.getAlarms())
@@ -122,8 +122,9 @@ class MainActivity : AppCompatActivity() {
                         .show()
                 } else {
                     alarm.isEnabled = isEnabled
-                    skippedAlarms.remove(alarm.id) // Reset when manually toggled
-                    alarm.skippedUntil = 0 
+                    skippedAlarms.remove(alarm.id)
+                    removeSkippedAlarm(alarm.id)
+                    alarm.skippedUntil = 0
                     alarmViewModel.update(alarm)
                     if (isEnabled) {
                         AlarmScheduler.schedule(this, alarm)
@@ -159,7 +160,10 @@ class MainActivity : AppCompatActivity() {
                 if (skippedTime != null && skippedTime > System.currentTimeMillis()) {
                     alarm.skippedUntil = skippedTime
                 } else {
-                    skippedAlarms.remove(alarm.id)
+                    if (skippedAlarms.containsKey(alarm.id)) {
+                        skippedAlarms.remove(alarm.id)
+                        removeSkippedAlarm(alarm.id)
+                    }
                 }
             }
 
@@ -179,6 +183,11 @@ class MainActivity : AppCompatActivity() {
                 emptyView.visibility = View.GONE
                 updateNextAlarmHighlight(alarms)
             }
+
+            if (isFirstLoad) {
+                showNextAlarmToast(alarms)
+                isFirstLoad = false
+            }
         }
 
         deleteButton.setOnClickListener {
@@ -190,19 +199,72 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        if (skippedAlarms.isNotEmpty()) {
-            val skippedIds = skippedAlarms.keys.toIntArray()
-            val skippedTimestamps = skippedAlarms.values.toLongArray()
-            outState.putIntArray("skipped_ids", skippedIds)
-            outState.putLongArray("skipped_timestamps", skippedTimestamps)
+    override fun onResume() {
+        super.onResume()
+        // Refresh adapter data on resume to re-evaluate skipped state
+        alarmViewModel.allAlarms.value?.let { adapter.setData(it) }
+        updateNextAlarmHighlight(adapter.getAlarms())
+    }
+
+    private fun saveSkippedAlarm(alarmId: Int, skippedUntil: Long) {
+        with(sharedPrefs.edit()) {
+            putLong(alarmId.toString(), skippedUntil)
+            apply()
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        alarmViewModel.allAlarms.value?.let { updateNextAlarmHighlight(it) }
+    private fun removeSkippedAlarm(alarmId: Int) {
+        with(sharedPrefs.edit()) {
+            remove(alarmId.toString())
+            apply()
+        }
+    }
+
+    private fun loadSkippedAlarms() {
+        sharedPrefs.all.forEach { (key, value) ->
+            try {
+                val alarmId = key.toInt()
+                val skippedUntil = value as Long
+                if (skippedUntil > System.currentTimeMillis()) {
+                    skippedAlarms[alarmId] = skippedUntil
+                } else {
+                    removeSkippedAlarm(alarmId)
+                }
+            } catch (e: Exception) {
+                // Could be a parsing error, clean up the pref
+                with(sharedPrefs.edit()) {
+                    remove(key)
+                    apply()
+                }
+            }
+        }
+    }
+
+    private fun showNextAlarmToast(alarms: List<Alarm>) {
+        var nextAlarm: Alarm? = null
+        var nextAlarmTime = Long.MAX_VALUE
+
+        alarms.forEach { alarm ->
+            if (alarm.isEnabled) {
+                val triggerTime = AlarmScheduler.calculateNextTriggerTime(alarm)
+                if (triggerTime != -1L && triggerTime < nextAlarmTime) {
+                    nextAlarmTime = triggerTime
+                    nextAlarm = alarm
+                }
+            }
+        }
+
+        if (nextAlarm != null) {
+            val now = System.currentTimeMillis()
+            val diff = nextAlarmTime - now
+            if (diff > 0) {
+                val days = TimeUnit.MILLISECONDS.toDays(diff)
+                val hours = TimeUnit.MILLISECONDS.toHours(diff) % 24
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+                val dayString = if (days > 0) "$days day(s), " else ""
+                Toast.makeText(this, "Next alarm in $dayString$hours hour(s) and $minutes minute(s)", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun updateNextAlarmHighlight(alarms: List<Alarm>) {
@@ -210,7 +272,8 @@ class MainActivity : AppCompatActivity() {
         var nextAlarmTime = Long.MAX_VALUE
 
         alarms.forEach { alarm ->
-            if (alarm.isEnabled) {
+            val isSkipped = skippedAlarms[alarm.id]?.let { it > System.currentTimeMillis() } ?: false
+            if (alarm.isEnabled && !isSkipped) {
                 val triggerTime = AlarmScheduler.calculateNextTriggerTime(alarm)
                 if (triggerTime != -1L && triggerTime < nextAlarmTime) {
                     nextAlarmTime = triggerTime

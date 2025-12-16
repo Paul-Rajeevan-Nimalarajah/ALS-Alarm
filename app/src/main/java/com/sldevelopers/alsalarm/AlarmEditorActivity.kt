@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import android.app.AlarmManager
 import android.widget.TimePicker
+import java.util.concurrent.TimeUnit
 
 class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
 
@@ -242,8 +243,25 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
                 alarmViewModel.update(alarm)
                 alarm.id
             }
-            AlarmScheduler.schedule(this@AlarmEditorActivity, alarm.copy(id = newId))
-            Toast.makeText(this@AlarmEditorActivity, "Alarm saved", Toast.LENGTH_SHORT).show()
+            
+            val finalAlarm = alarm.copy(id = newId)
+            AlarmScheduler.schedule(this@AlarmEditorActivity, finalAlarm)
+            
+            val triggerTime = AlarmScheduler.calculateNextTriggerTime(finalAlarm)
+            val message = if (triggerTime != -1L) {
+                val now = System.currentTimeMillis()
+                val diff = triggerTime - now
+                val days = TimeUnit.MILLISECONDS.toDays(diff)
+                val hours = TimeUnit.MILLISECONDS.toHours(diff) % 24
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+
+                val dayString = if (days > 0) "$days day(s), " else ""
+                "Alarm set for $dayString$hours hour(s) and $minutes minute(s) from now."
+            } else {
+                "Alarm saved"
+            }
+            Toast.makeText(this@AlarmEditorActivity, message, Toast.LENGTH_LONG).show()
+            
             finish()
         }
     }
