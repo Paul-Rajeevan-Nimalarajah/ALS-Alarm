@@ -54,6 +54,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var dayPickerGroup: ChipGroup
     private lateinit var saveAlarmButton: Button
     private lateinit var deleteAlarmButton: Button
+    private lateinit var previewAlarmButton: Button
     private lateinit var luxDismissalSwitch: SwitchMaterial
     private lateinit var luxValueText: TextView
     private lateinit var luxThresholdLabel: TextView
@@ -113,6 +114,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         dayPickerGroup = findViewById(R.id.dayPickerGroup)
         saveAlarmButton = findViewById(R.id.saveAlarmButton)
         deleteAlarmButton = findViewById(R.id.deleteAlarmButton)
+        previewAlarmButton = findViewById(R.id.previewAlarmButton)
         luxDismissalSwitch = findViewById(R.id.luxDismissalSwitch)
         luxValueText = findViewById(R.id.luxValueText)
         luxThresholdLabel = findViewById(R.id.luxThresholdLabel)
@@ -137,6 +139,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private fun setListeners() {
         saveAlarmButton.setOnClickListener { if (checkAndRequestPermissions()) saveAlarm() }
         deleteAlarmButton.setOnClickListener { deleteAlarm() }
+        previewAlarmButton.setOnClickListener { previewAlarm() }
         ringtoneButton.setOnClickListener { openRingtonePicker() }
         pinEnabledSwitch.setOnCheckedChangeListener { _, isChecked -> updatePinUiState(isChecked) }
         luxDismissalSwitch.setOnCheckedChangeListener { _, isChecked -> updateLuxUiState(isChecked) }
@@ -254,6 +257,46 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
                 finish()
             }
         }
+    }
+
+    private fun previewAlarm() {
+        if (alarmId == null) {
+            // It's a new alarm, construct a temporary alarm object and pass its details
+            val intent = Intent(this, AlarmScreenActivity::class.java).apply {
+                putExtra("is_preview", true)
+                putExtra("alarm_id", -1) // Indicate it's a temporary alarm for preview
+                putExtra("hour", alarmTimePicker.hour)
+                putExtra("minute", alarmTimePicker.minute)
+                putExtra("label", alarmLabelEditText.text.toString())
+
+                val selectedDays = mutableListOf<String>()
+                dayPickerGroup.checkedChipIds.forEach { id ->
+                    val chip = dayPickerGroup.findViewById<Chip>(id)
+                    selectedDays.add(chip.tag.toString())
+                }
+                putStringArrayListExtra("selected_days", ArrayList(selectedDays))
+
+                putExtra("lux_enabled", luxDismissalSwitch.isChecked)
+                putExtra("lux_dismiss_level", luxThresholdSeekBar.progress)
+                putExtra("volume", volumeSeekBar.progress)
+                putExtra("ringtone_uri", ringtoneUri)
+                putExtra("pin_enabled", pinEnabledSwitch.isChecked)
+                putExtra("pin", pinEditText.text.toString())
+            }
+            startActivity(intent)
+        } else {
+            // It's an existing alarm, use the existing ID
+            launchAlarmScreen(true)
+        }
+    }
+
+    private fun launchAlarmScreen(isPreview: Boolean) {
+        val intent = Intent(this, AlarmScreenActivity::class.java).apply {
+            val id = alarmId ?: -1
+            putExtra("alarm_id", id)
+            putExtra("is_preview", isPreview)
+        }
+        startActivity(intent)
     }
 
     private fun updatePinUiState(pinEnabled: Boolean) {

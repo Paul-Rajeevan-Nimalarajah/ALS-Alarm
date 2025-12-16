@@ -51,32 +51,52 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         currentLuxLabel = findViewById(R.id.current_lux_label)
         requiredLuxLabel = findViewById(R.id.required_lux_label)
 
+        val isPreview = intent.getBooleanExtra("is_preview", false)
         val alarmId = intent.getIntExtra("alarm_id", -1)
+
+        if (isPreview) {
+            if (alarmId == -1) {
+                // New alarm preview
+                val hour = intent.getIntExtra("hour", 0)
+                val minute = intent.getIntExtra("minute", 0)
+                val label = intent.getStringExtra("label")
+                val selectedDays = intent.getStringArrayListExtra("selected_days")?.toSet() ?: emptySet()
+                val luxEnabled = intent.getBooleanExtra("lux_enabled", false)
+                val luxDismissLevel = intent.getIntExtra("lux_dismiss_level", 0)
+                val volume = intent.getIntExtra("volume", 80)
+                val ringtoneUri = intent.getStringExtra("ringtone_uri")
+                val pinEnabled = intent.getBooleanExtra("pin_enabled", false)
+                val pin = intent.getStringExtra("pin")
+
+                currentAlarm = Alarm(
+                    hour = hour,
+                    minute = minute,
+                    label = label,
+                    selectedDays = selectedDays,
+                    isLuxDismissalEnabled = luxEnabled,
+                    dismissLux = luxDismissLevel,
+                    volume = volume,
+                    ringtoneUri = ringtoneUri,
+                    isPinEnabled = pinEnabled,
+                    pin = pin
+                )
+                setupUI(currentAlarm!!, isPreview = true)
+            } else {
+                // Existing alarm preview
+                loadAlarmFromDatabase(alarmId, isPreview = true)
+            }
+        } else {
+            // Regular alarm
+            loadAlarmFromDatabase(alarmId)
+        }
+    }
+
+    private fun loadAlarmFromDatabase(alarmId: Int, isPreview: Boolean = false) {
         if (alarmId == -1) {
             Log.e("AlarmScreenActivity", "No alarm ID passed to activity")
             finish()
             return
         }
-
-        val isSnoozed = intent.getBooleanExtra("is_snoozed", false)
-        val snoozeButtonContainer = findViewById<LinearLayout>(R.id.snooze_button_container)
-
-        if (isSnoozed) {
-            snoozeButtonContainer.visibility = View.GONE
-        } else {
-            snoozeButtonContainer.visibility = View.VISIBLE
-            findViewById<Button>(R.id.snooze5minButton).setOnClickListener { snooze(5) }
-            findViewById<Button>(R.id.snooze10minButton).setOnClickListener { snooze(10) }
-            findViewById<Button>(R.id.snooze15minButton).setOnClickListener { snooze(15) }
-            findViewById<Button>(R.id.snooze20minButton).setOnClickListener { snooze(20) }
-        }
-
-        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-        if (lightSensor == null) {
-            Log.w("AlarmScreenActivity", "Light sensor not available on this device")
-        }
-
         val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
         val viewModelFactory = AlarmViewModelFactory(alarmDao)
         alarmViewModel = ViewModelProvider(this, viewModelFactory)[AlarmViewModel::class.java]
@@ -85,7 +105,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             if (alarm != null) {
                 Log.d("AlarmScreenActivity", "Alarm data loaded: $alarm")
                 currentAlarm = alarm
-                setupUI(alarm)
+                setupUI(alarm, isPreview)
                 registerSensorListener()
             } else {
                 Log.e("AlarmScreenActivity", "Alarm with ID $alarmId not found in database")
@@ -95,10 +115,41 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
-    private fun setupUI(alarm: Alarm) {
+    private fun setupUI(alarm: Alarm, isPreview: Boolean = false) {
         alarmLabelTextView.text = alarm.label
         val dismissButton = findViewById<Button>(R.id.dismissButton)
         val pinText = findViewById<EditText>(R.id.pinEditText)
+        val snoozeButtonContainer = findViewById<LinearLayout>(R.id.snooze_button_container)
+
+        if (isPreview) {
+            snoozeButtonContainer.visibility = View.GONE
+            dismissButton.text = "Close Preview"
+            dismissButton.setOnClickListener { finish() }
+        } else {
+            val isSnoozed = intent.getBooleanExtra("is_snoozed", false)
+            if (isSnoozed) {
+                snoozeButtonContainer.visibility = View.GONE
+            } else {
+                snoozeButtonContainer.visibility = View.VISIBLE
+                findViewById<Button>(R.id.snooze5minButton).setOnClickListener { snooze(5) }
+                findViewById<Button>(R.id.snooze10minButton).setOnClickListener { snooze(10) }
+                findViewById<Button>(R.id.snooze15minButton).setOnClickListener { snooze(15) }
+                findViewById<Button>(R.id.snooze20minButton).setOnClickListener { snooze(20) }
+            }
+
+            dismissButton.setOnClickListener {
+                if (!alarm.isPinEnabled || pinText.text.toString() == alarm.pin) {
+                    stopService(Intent(this, AlarmService::class.java))
+                    if (alarm.selectedDays.isEmpty()) {
+                        alarm.isEnabled = false
+                        alarmViewModel.update(alarm)
+                    }
+                    finishAndRemoveTask()
+                } else {
+                    Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
 
         pinText.visibility = if (alarm.isPinEnabled) View.VISIBLE else View.GONE
 
@@ -115,19 +166,6 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         } else {
             luxContainer.visibility = View.GONE
             dismissButton.isEnabled = true
-        }
-
-        dismissButton.setOnClickListener {
-            if (!alarm.isPinEnabled || pinText.text.toString() == alarm.pin) {
-                stopService(Intent(this, AlarmService::class.java))
-                if (alarm.selectedDays.isEmpty()) {
-                    alarm.isEnabled = false
-                    alarmViewModel.update(alarm)
-                }
-                finishAndRemoveTask()
-            } else {
-                Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 
