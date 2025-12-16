@@ -6,10 +6,13 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -24,6 +27,10 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
     private var currentAlarm: Alarm? = null
     private var isSensorRegistered = false
 
+    private lateinit var luxContainer: LinearLayout
+    private lateinit var currentLuxLabel: TextView
+    private lateinit var requiredLuxLabel: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -35,10 +42,21 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
         setContentView(R.layout.activity_alarm_screen)
 
+        luxContainer = findViewById(R.id.lux_container)
+        currentLuxLabel = findViewById(R.id.current_lux_label)
+        requiredLuxLabel = findViewById(R.id.required_lux_label)
+
         val alarmId = intent.getIntExtra("alarm_id", -1)
         if (alarmId == -1) {
+            Log.e("AlarmScreenActivity", "No alarm ID passed to activity")
             finish()
             return
+        }
+
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+        if (lightSensor == null) {
+            Log.w("AlarmScreenActivity", "Light sensor not available on this device")
         }
 
         val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
@@ -47,10 +65,12 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
         alarmViewModel.getAlarm(alarmId).observe(this) { alarm ->
             if (alarm != null) {
+                Log.d("AlarmScreenActivity", "Alarm data loaded: $alarm")
                 currentAlarm = alarm
                 setupUI(alarm)
+                registerSensorListener()
             } else {
-                // If alarm is not found, dismiss the screen
+                Log.e("AlarmScreenActivity", "Alarm with ID $alarmId not found in database")
                 stopService(Intent(this, AlarmService::class.java))
                 finishAndRemoveTask()
             }
@@ -64,21 +84,27 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         pinText.visibility = if (alarm.isPinEnabled) View.VISIBLE else View.GONE
 
         if (alarm.isLuxDismissalEnabled) {
+            luxContainer.visibility = View.VISIBLE
+            requiredLuxLabel.text = "Required Lux: ${alarm.dismissLux}"
             dismissButton.isEnabled = false
-            sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-            lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-            lightSensor?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-                isSensorRegistered = true
+            if (lightSensor == null) {
+                currentLuxLabel.text = "Light sensor not available"
+                dismissButton.isEnabled = true
+            } else {
+                currentLuxLabel.text = "Current Lux: 0"
             }
         } else {
+            luxContainer.visibility = View.GONE
             dismissButton.isEnabled = true
-            lightSensor = null
         }
 
         dismissButton.setOnClickListener {
             if (!alarm.isPinEnabled || pinText.text.toString() == alarm.pin) {
                 stopService(Intent(this, AlarmService::class.java))
+                if (alarm.selectedDays.isEmpty()) {
+                    alarm.isEnabled = false
+                    alarmViewModel.update(alarm)
+                }
                 finishAndRemoveTask()
             } else {
                 Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
@@ -86,20 +112,41 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
+    private fun registerSensorListener() {
+        if (currentAlarm?.isLuxDismissalEnabled == true && lightSensor != null && !isSensorRegistered) {
+            Log.d("AlarmScreenActivity", "Registering light sensor listener")
+            sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+            isSensorRegistered = true
+        }
+    }
+
+    private fun unregisterSensorListener() {
         if (isSensorRegistered) {
+            Log.d("AlarmScreenActivity", "Unregistering light sensor listener")
             sensorManager.unregisterListener(this)
             isSensorRegistered = false
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        registerSensorListener()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterSensorListener()
+    }
+
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
+            val luxValue = event.values[0]
+            Log.d("AlarmScreenActivity", "Sensor changed, new lux value: $luxValue")
+            currentLuxLabel.text = "Current Lux: $luxValue"
             currentAlarm?.let { alarm ->
                 if (alarm.isLuxDismissalEnabled) {
                     val dismissButton = findViewById<Button>(R.id.dismissButton)
-                    dismissButton.isEnabled = event.values[0] > alarm.dismissLux
+                    dismissButton.isEnabled = luxValue > alarm.dismissLux
                 }
             }
         }

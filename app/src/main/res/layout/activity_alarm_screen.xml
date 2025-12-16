@@ -7,10 +7,37 @@
     android:orientation="vertical"
     android:padding="32dp">
 
+    <LinearLayout
+        android:id="@+id/lux_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="visible"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/current_lux_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Current Lux: 0"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/required_lux_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Required Lux: 0"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+    </LinearLayout>
+
     <EditText
         android:id="@+id/pinEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:hint="Enter PIN to dismiss"
         android:inputType="numberPassword"
         android:textColor="#FFFFFF"

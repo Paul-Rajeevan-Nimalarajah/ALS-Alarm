@@ -140,6 +140,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        alarmViewModel.allAlarms.value?.let { updateNextAlarmHighlight(it) }
+    }
+
     private fun updateNextAlarmHighlight(alarms: List<Alarm>) {
         var nextAlarm: Alarm? = null
         var nextAlarmTime = Long.MAX_VALUE
