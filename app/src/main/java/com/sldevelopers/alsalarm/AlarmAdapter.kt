@@ -1,7 +1,6 @@
 package com.sldevelopers.alsalarm
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -35,7 +34,8 @@ class AlarmAdapter(
             val position = holder.adapterPosition
             if (position != RecyclerView.NO_POSITION) {
                 val alarm = alarms[position]
-                if (alarm.isEnabled != isChecked) { // Prevent infinite loops
+                // Only trigger listener when the user interacts with the switch
+                if (holder.alarmEnabledSwitch.isPressed) {
                     onAlarmEnabledToggled(alarm, isChecked)
                 }
             }
@@ -107,10 +107,22 @@ class AlarmAdapter(
                 alarmLabel.text = alarm.label
             }
 
-            alarmDays.text = if (alarm.selectedDays.isEmpty()) "One-time" else alarm.selectedDays.joinToString(", ")
-            alarmEnabledSwitch.isChecked = alarm.isEnabled
-            nextAlarmLabel.visibility = if (isNext) View.VISIBLE else View.GONE
+            val isSkipped = alarm.skippedUntil > System.currentTimeMillis()
+            if(isSkipped) {
+                alarmTime.setTextColor(ContextCompat.getColorStateList(itemView.context, R.color.disabled_text_color))
+                alarmDays.text = "Skipped"
+                alarmDays.setTextColor(ContextCompat.getColorStateList(itemView.context, R.color.disabled_text_color))
+                alarmEnabledSwitch.isChecked = false
+                alarmEnabledSwitch.isEnabled = true
+            } else {
+                alarmTime.setTextColor(ContextCompat.getColorStateList(itemView.context, R.color.default_text_color))
+                alarmDays.text = if (alarm.selectedDays.isEmpty()) "One-time" else alarm.selectedDays.joinToString(", ")
+                alarmDays.setTextColor(ContextCompat.getColorStateList(itemView.context, R.color.default_text_color))
+                alarmEnabledSwitch.isChecked = alarm.isEnabled
+                alarmEnabledSwitch.isEnabled = true
+            }
 
+            nextAlarmLabel.visibility = if (isNext && !isSkipped) View.VISIBLE else View.GONE
             itemView.setBackgroundColor(if (isSelected) ContextCompat.getColor(itemView.context, R.color.selected_alarm_highlight) else ContextCompat.getColor(itemView.context, android.R.color.transparent))
         }
 

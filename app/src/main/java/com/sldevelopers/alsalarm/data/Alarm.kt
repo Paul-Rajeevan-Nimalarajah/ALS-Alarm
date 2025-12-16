@@ -2,6 +2,7 @@ package com.sldevelopers.alsalarm.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Ignore
 
 @Entity(tableName = "alarms")
 data class Alarm(
@@ -19,4 +20,7 @@ data class Alarm(
     val isPinEnabled: Boolean = false,
     val pin: String? = null,
     var displayOrder: Int = 0
-)
+) {
+    @Ignore
+    var skippedUntil: Long = 0
+}

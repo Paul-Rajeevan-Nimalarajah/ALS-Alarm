@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF000000"
+    android:background="?android:attr/colorBackground"
     android:gravity="center"
     android:orientation="vertical"
     android:padding="32dp">
@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="32dp"
-        android:textColor="#FFFFFF"
+        android:textColor="?android:attr/textColorPrimary"
         android:textSize="24sp"
         tools:text="Alarm Label" />
 
@@ -30,7 +30,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Current Lux: 0"
-            android:textColor="#FFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="18sp" />
 
         <TextView
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Required Lux: 0"
-            android:textColor="#FFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="18sp" />
     </LinearLayout>
 
@@ -50,18 +50,17 @@
         android:layout_marginTop="16dp"
         android:hint="Enter PIN to dismiss"
         android:inputType="numberPassword"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#AAAAAA" />
+        android:textColor="?android:attr/textColorPrimary"
+        android:textColorHint="?android:attr/textColorHint" />
 
     <Button
         android:id="@+id/dismissButton"
+        style="@style/Widget.MaterialComponents.Button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:background="#FF6200EE"
         android:enabled="false"
-        android:text="Dismiss Alarm"
-        android:textColor="#FFFFFF" />
+        android:text="Dismiss Alarm" />
 
     <LinearLayout
         android:id="@+id/snooze_button_container"
@@ -77,8 +76,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="5 min"
-            android:textColor="#FFFFFF" />
+            android:text="5 min" />
 
         <Button
             android:id="@+id/snooze10minButton"
@@ -87,8 +85,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="10 min"
-            android:textColor="#FFFFFF" />
+            android:text="10 min" />
 
         <Button
             android:id="@+id/snooze15minButton"
@@ -97,8 +94,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="15 min"
-            android:textColor="#FFFFFF" />
+            android:text="15 min" />
 
         <Button
             android:id="@+id/snooze20minButton"
@@ -106,8 +102,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="20 min"
-            android:textColor="#FFFFFF" />
+            android:text="20 min" />
     </LinearLayout>
 
 </LinearLayout>
