@@ -11,8 +11,13 @@ import java.util.Calendar
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        val alarmId = intent.getIntExtra("alarm_id", -1)
+        if (alarmId == -1) return
+
         // Start the alarm service to play the sound
-        val serviceIntent = Intent(context, AlarmService::class.java)
+        val serviceIntent = Intent(context, AlarmService::class.java).apply {
+            putExtra("alarm_id", alarmId)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
         } else {
@@ -20,10 +25,10 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         // Reschedule the next alarm if it's a repeating one
-        rescheduleNextAlarm(context)
+        rescheduleNextAlarm(context, alarmId)
     }
 
-    private fun rescheduleNextAlarm(context: Context) {
+    private fun rescheduleNextAlarm(context: Context, alarmId: Int) {
         val sharedPrefs = context.getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
         val selectedDays = sharedPrefs.getStringSet("selectedDays", emptySet()) ?: emptySet()
         val hour = sharedPrefs.getInt("alarmHour", -1)
@@ -44,8 +49,10 @@ class AlarmReceiver : BroadcastReceiver() {
 
         if (nextTriggerTime != -1L) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, AlarmReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val intent = Intent(context, AlarmReceiver::class.java).apply{
+                putExtra("alarm_id", alarmId)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(context, alarmId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTriggerTime, pendingIntent)
 
             // Save the next trigger time

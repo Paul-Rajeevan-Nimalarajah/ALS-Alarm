@@ -1,97 +1,106 @@
 package com.sldevelopers.alsalarm
 
-import android.content.*
-import android.hardware.*
-import android.os.*
-import android.util.Log
-import android.view.*
-import android.widget.*
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Bundle
+import android.view.View
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import com.sldevelopers.alsalarm.data.Alarm
+import com.sldevelopers.alsalarm.data.AlarmDatabase
 
 class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
-    private var luxLimit = 50
-    private var pin: String? = null
-    private var pinEnabled = false
+    private lateinit var alarmViewModel: AlarmViewModel
+    private var currentAlarm: Alarm? = null
+    private var isSensorRegistered = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("AlarmScreenActivity", "onCreate: Activity starting")
 
-        try {
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-            Log.d("AlarmScreenActivity", "onCreate: Window flags set")
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
 
-            setContentView(R.layout.activity_alarm_screen)
-            Log.d("AlarmScreenActivity", "onCreate: Content view set")
+        setContentView(R.layout.activity_alarm_screen)
 
-            val dismiss = findViewById<Button>(R.id.dismissButton)
-            val pinText = findViewById<EditText>(R.id.pinEditText)
-            Log.d("AlarmScreenActivity", "onCreate: Views found")
-
-            val prefs = getSharedPreferences("AlarmSettings", MODE_PRIVATE)
-            luxLimit = prefs.getInt("dismissLux", 50)
-            pinEnabled = prefs.getBoolean("pinEnabled", false)
-            pin = prefs.getString("pin", null)
-            Log.d("AlarmScreenActivity", "onCreate: Preferences loaded. pinEnabled: $pinEnabled")
-
-            pinText.visibility = if (pinEnabled) View.VISIBLE else View.GONE
-            dismiss.isEnabled = false
-            Log.d("AlarmScreenActivity", "onCreate: UI state initialized")
-
-            sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-            lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-            Log.d("AlarmScreenActivity", "onCreate: Sensor manager initialized. Light sensor found: ${lightSensor != null}")
-
-            dismiss.setOnClickListener {
-                if (!pinEnabled || pinText.text.toString() == pin) {
-                    stopService(Intent(this, AlarmService::class.java))
-                    finishAndRemoveTask()
-                } else {
-                    Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
-                }
-            }
-            Log.d("AlarmScreenActivity", "onCreate: OnClickListener set")
-
-        } catch (e: Exception) {
-            Log.e("AlarmScreenActivity", "FATAL CRASH IN ONCREATE", e)
-            // We still want to stop the alarm sound if the UI crashes
-            try {
-                stopService(Intent(this, AlarmService::class.java))
-            } catch (serviceException: Exception) {
-                Log.e("AlarmScreenActivity", "Could not stop service after crash", serviceException)
-            }
+        val alarmId = intent.getIntExtra("alarm_id", -1)
+        if (alarmId == -1) {
             finish()
+            return
+        }
+
+        val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
+        val viewModelFactory = AlarmViewModelFactory(alarmDao)
+        alarmViewModel = ViewModelProvider(this, viewModelFactory)[AlarmViewModel::class.java]
+
+        alarmViewModel.getAlarm(alarmId).observe(this) { alarm ->
+            if (alarm != null) {
+                currentAlarm = alarm
+                setupUI(alarm)
+            } else {
+                // If alarm is not found, dismiss the screen
+                stopService(Intent(this, AlarmService::class.java))
+                finishAndRemoveTask()
+            }
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        Log.d("AlarmScreenActivity", "onResume: Registering sensor listener")
-        lightSensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+    private fun setupUI(alarm: Alarm) {
+        val dismissButton = findViewById<Button>(R.id.dismissButton)
+        val pinText = findViewById<EditText>(R.id.pinEditText)
+
+        pinText.visibility = if (alarm.isPinEnabled) View.VISIBLE else View.GONE
+
+        if (alarm.isLuxDismissalEnabled) {
+            dismissButton.isEnabled = false
+            sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+            lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+            lightSensor?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+                isSensorRegistered = true
+            }
+        } else {
+            dismissButton.isEnabled = true
+            lightSensor = null
+        }
+
+        dismissButton.setOnClickListener {
+            if (!alarm.isPinEnabled || pinText.text.toString() == alarm.pin) {
+                stopService(Intent(this, AlarmService::class.java))
+                finishAndRemoveTask()
+            } else {
+                Toast.makeText(this, "Wrong PIN", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        Log.d("AlarmScreenActivity", "onPause: Unregistering sensor listener")
-        sensorManager.unregisterListener(this)
+        if (isSensorRegistered) {
+            sensorManager.unregisterListener(this)
+            isSensorRegistered = false
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
-            try {
-                findViewById<Button>(R.id.dismissButton).isEnabled =
-                    event.values[0] > luxLimit
-            } catch (e: Exception) {
-                // Avoid crashing in a frequently called method
+            currentAlarm?.let { alarm ->
+                if (alarm.isLuxDismissalEnabled) {
+                    val dismissButton = findViewById<Button>(R.id.dismissButton)
+                    dismissButton.isEnabled = event.values[0] > alarm.dismissLux
+                }
             }
         }
     }

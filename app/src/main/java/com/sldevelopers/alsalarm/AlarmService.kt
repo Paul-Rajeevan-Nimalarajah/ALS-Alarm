@@ -17,6 +17,10 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.sldevelopers.alsalarm.data.AlarmDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmService : Service() {
 
@@ -27,64 +31,64 @@ class AlarmService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d("AlarmService", "Service onCreate")
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        Log.d("AlarmService", "Service onStartCommand")
-
-        val channelId = "alarm_channel"
-        val channelName = "Alarm Channel"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
-            channel.setBypassDnd(true)
-            notificationManager.createNotificationChannel(channel)
+        val alarmId = intent.getIntExtra("alarm_id", -1)
+        if (alarmId == -1) {
+            stopSelf()
+            return START_NOT_STICKY
         }
 
-        val fullScreenIntent = Intent(this, AlarmScreenActivity::class.java)
-        val fullScreenPendingIntent = PendingIntent.getActivity(
-            this, 0, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        CoroutineScope(Dispatchers.IO).launch {
+            val alarm = AlarmDatabase.getDatabase(application).alarmDao().getAlarmById(alarmId)
+            alarm?.let {
+                val channelId = "alarm_channel"
+                val channelName = "Alarm Channel"
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Alarm")
-            .setContentText("Your alarm is ringing.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .build()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
+                    channel.setBypassDnd(true)
+                    notificationManager.createNotificationChannel(channel)
+                }
 
-        startForeground(1, notification)
-        startSoundAndVibration()
+                val fullScreenIntent = Intent(this@AlarmService, AlarmScreenActivity::class.java).apply {
+                    putExtra("alarm_id", alarm.id)
+                }
+                val fullScreenPendingIntent = PendingIntent.getActivity(
+                    this@AlarmService, 0, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val notification = NotificationCompat.Builder(this@AlarmService, channelId)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("Alarm")
+                    .setContentText(alarm.label ?: "Your alarm is ringing.")
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setFullScreenIntent(fullScreenPendingIntent, true)
+                    .build()
+
+                startSoundAndVibration(alarm)
+                startForeground(1, notification)
+            }
+        }
 
         return START_STICKY
     }
 
-    private fun startSoundAndVibration() {
-        val sharedPrefs = getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
-        val ringtoneUriString = sharedPrefs.getString("ringtone_uri", null)
-        val volumePercentage = sharedPrefs.getInt("volume", 80)
-
-        val alarmUri = if (ringtoneUriString != null) {
-            Uri.parse(ringtoneUriString)
-        } else {
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        }
+    private fun startSoundAndVibration(alarm: com.sldevelopers.alsalarm.data.Alarm) {
+        val ringtoneUri = alarm.ringtoneUri?.let { Uri.parse(it) } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         
         try {
-            // Force the system's alarm volume to the desired level
             originalAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
             val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            val desiredVolume = (volumePercentage / 100f * maxVolume).toInt()
+            val desiredVolume = (alarm.volume / 100f * maxVolume).toInt()
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, desiredVolume, 0)
 
-            // Start Ringtone with MediaPlayer
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, alarmUri)
+                setDataSource(applicationContext, ringtoneUri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -95,9 +99,7 @@ class AlarmService : Service() {
                 prepare()
                 start()
             }
-            Log.d("AlarmService", "Ringtone started with system volume forced to: $desiredVolume")
 
-            // Start Vibration
             vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
                 vibratorManager.defaultVibrator
@@ -106,7 +108,6 @@ class AlarmService : Service() {
                 getSystemService(VIBRATOR_SERVICE) as Vibrator
             }
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000, 500), 0))
-            Log.d("AlarmService", "Vibration started.")
 
         } catch (e: Exception) {
             Log.e("AlarmService", "Error starting sound or vibration", e)
@@ -124,11 +125,8 @@ class AlarmService : Service() {
         mediaPlayer = null
         vibrator?.cancel()
 
-        // Restore the original alarm volume
         if (originalAlarmVolume != -1) {
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalAlarmVolume, 0)
-            Log.d("AlarmService", "Original alarm volume restored.")
         }
-        Log.d("AlarmService", "Service destroyed. Alarm stopped.")
     }
 }

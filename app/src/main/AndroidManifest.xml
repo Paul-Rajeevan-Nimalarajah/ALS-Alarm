@@ -5,6 +5,7 @@
     <!-- Core Alarm Permissions -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Permissions to Wake Up Screen and Show Over Lock Screen -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" /> 
@@ -35,11 +36,21 @@
         </activity>
 
         <activity
+            android:name="com.sldevelopers.alsalarm.AlarmEditorActivity"
+            android:exported="false" />
+
+        <activity
             android:name="com.sldevelopers.alsalarm.AlarmScreenActivity"
             android:exported="false"
             android:showWhenLocked="true"
             android:theme="@style/Theme.ALSAlarm.AlarmScreen"
             android:turnScreenOn="true" />
+
+        <receiver android:name=".BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <receiver android:name="com.sldevelopers.alsalarm.AlarmReceiver" android:enabled="true" android:exported="false" />
 
@@ -47,6 +58,10 @@
             android:name="com.sldevelopers.alsalarm.AlarmService" 
             android:enabled="true" 
             android:foregroundServiceType="mediaPlayback"/>
+
+        <service 
+            android:name="com.sldevelopers.alsalarm.RescheduleAlarmsService" 
+            android:enabled="true" />
 
     </application>
 

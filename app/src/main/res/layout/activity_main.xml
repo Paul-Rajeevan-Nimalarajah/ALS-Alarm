@@ -1,247 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    tools:context=".MainActivity">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp"
-        tools:context=".MainActivity">
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
 
-        <!-- All elements are now in a vertical chain, packed and centered. -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/alarmTimeText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="No Alarm Set"
-            android:textSize="40sp"
-            app:layout_constraintBottom_toTopOf="@+id/buttonContainer"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_chainStyle="packed" />
-
-        <LinearLayout
-            android:id="@+id/buttonContainer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:orientation="horizontal"
-            app:layout_constraintBottom_toTopOf="@+id/dayPickerContainer"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/alarmTimeText">
-
-            <Button
-                android:id="@+id/setAlarmButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Set" />
-
-            <View
-                android:layout_width="16dp"
-                android:layout_height="1dp" />
-
-            <Button
-                android:id="@+id/setAlarmButton2"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Reset" />
-
-        </LinearLayout>
-
-        <HorizontalScrollView
-            android:id="@+id/dayPickerContainer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:scrollbars="none"
-            app:layout_constraintBottom_toTopOf="@+id/luxValueText"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/buttonContainer">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/dayPickerGroup"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                app:chipSpacingHorizontal="4dp"
-                app:singleLine="true"
-                app:singleSelection="false">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/sundayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Su"
-                    android:tag="Su" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/mondayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="M"
-                    android:tag="M" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/tuesdayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Tu"
-                    android:tag="Tu" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/wednesdayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="W"
-                    android:tag="W" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/thursdayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Th"
-                    android:tag="Th" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/fridayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="F"
-                    android:tag="F" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/saturdayChip"
-                    style="@style/Widget.App.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Sa"
-                    android:tag="Sa" />
-
-            </com.google.android.material.chip.ChipGroup>
-
-        </HorizontalScrollView>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/alarmsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:listitem="@layout/item_alarm" />
 
         <TextView
-            android:id="@+id/luxValueText"
+            android:id="@+id/empty_view"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Current Lux: Listening..."
-            app:layout_constraintBottom_toTopOf="@+id/luxThresholdLabel"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/dayPickerContainer" />
+            android:layout_gravity="center"
+            android:text="No alarms set"
+            android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/luxThresholdLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Dismiss Lux Level:"
-            app:layout_constraintBottom_toTopOf="@+id/luxThresholdSeekBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/luxValueText" />
+    </FrameLayout>
 
-        <EditText
-            android:id="@+id/luxEditText"
-            android:layout_width="80dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:inputType="number"
-            app:layout_constraintBaseline_toBaselineOf="@+id/luxThresholdLabel"
-            app:layout_constraintStart_toEndOf="@+id/luxThresholdLabel" />
-
-        <SeekBar
-            android:id="@+id/luxThresholdSeekBar"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:max="1000"
-            app:layout_constraintBottom_toTopOf="@+id/volumeLabel"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/luxThresholdLabel" />
-
-        <TextView
-            android:id="@+id/volumeLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Alarm Volume"
-            app:layout_constraintBottom_toTopOf="@+id/volumeSeekBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/luxThresholdSeekBar" />
-
-        <SeekBar
-            android:id="@+id/volumeSeekBar"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:max="100"
-            android:progress="80"
-            app:layout_constraintBottom_toTopOf="@+id/ringtoneButton"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/volumeLabel" />
-
-        <Button
-            android:id="@+id/ringtoneButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Select Ringtone"
-            app:layout_constraintBottom_toTopOf="@+id/pinEnabledSwitch"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/volumeSeekBar" />
-
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/pinEnabledSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Enable PIN Dismissal"
-            app:layout_constraintBottom_toTopOf="@+id/pinEditText"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ringtoneButton" />
-
-        <EditText
-            android:id="@+id/pinEditText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="Enter PIN"
-            android:inputType="numberPassword"
-            app:layout_constraintBottom_toTopOf="@+id/savePinButton"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/pinEnabledSwitch" />
-
-        <Button
-            android:id="@+id/savePinButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Save PIN"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/pinEditText" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+</LinearLayout>
