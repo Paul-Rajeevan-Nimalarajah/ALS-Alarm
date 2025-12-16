@@ -46,6 +46,9 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
         setContentView(R.layout.activity_alarm_screen)
 
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+
         alarmLabelTextView = findViewById(R.id.alarmLabelTextView)
         luxContainer = findViewById(R.id.lux_container)
         currentLuxLabel = findViewById(R.id.current_lux_label)
@@ -81,12 +84,16 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
                     pin = pin
                 )
                 setupUI(currentAlarm!!, isPreview = true)
+                registerSensorListener()
             } else {
                 // Existing alarm preview
                 loadAlarmFromDatabase(alarmId, isPreview = true)
             }
         } else {
             // Regular alarm
+            if (lightSensor == null) {
+                Log.w("AlarmScreenActivity", "Light sensor not available on this device")
+            }
             loadAlarmFromDatabase(alarmId)
         }
     }
@@ -109,7 +116,9 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
                 registerSensorListener()
             } else {
                 Log.e("AlarmScreenActivity", "Alarm with ID $alarmId not found in database")
-                stopService(Intent(this, AlarmService::class.java))
+                if (!isPreview) {
+                    stopService(Intent(this, AlarmService::class.java))
+                }
                 finishAndRemoveTask()
             }
         }
@@ -240,5 +249,11 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    override fun onBackPressed() {}
+
+    override fun onBackPressed() {
+        // Prevent accidental dismissal
+        if (intent.getBooleanExtra("is_preview", false)) {
+            super.onBackPressed()
+        }
+    }
 }
