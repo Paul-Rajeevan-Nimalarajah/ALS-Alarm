@@ -1,6 +1,5 @@
 package com.sldevelopers.alsalarm
 
-import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -36,14 +35,12 @@ import com.google.android.material.textfield.TextInputEditText
 import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 import android.app.AlarmManager
+import android.widget.TimePicker
 
 class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
 
-    private var calendar: Calendar? = null
     private var alarmId: Int? = null
     private var ringtoneUri: String? = null
     private var currentAlarm: Alarm? = null
@@ -53,7 +50,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private var lightSensor: Sensor? = null
 
     // Views
-    private lateinit var alarmTimeText: TextView
+    private lateinit var alarmTimePicker: TimePicker
     private lateinit var dayPickerGroup: ChipGroup
     private lateinit var saveAlarmButton: Button
     private lateinit var deleteAlarmButton: Button
@@ -112,7 +109,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun initializeViews() {
-        alarmTimeText = findViewById(R.id.alarmTimeText)
+        alarmTimePicker = findViewById(R.id.alarmTimePicker)
         dayPickerGroup = findViewById(R.id.dayPickerGroup)
         saveAlarmButton = findViewById(R.id.saveAlarmButton)
         deleteAlarmButton = findViewById(R.id.deleteAlarmButton)
@@ -138,7 +135,6 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setListeners() {
-        alarmTimeText.setOnClickListener { showTimePickerDialog() }
         saveAlarmButton.setOnClickListener { if (checkAndRequestPermissions()) saveAlarm() }
         deleteAlarmButton.setOnClickListener { deleteAlarm() }
         ringtoneButton.setOnClickListener { openRingtonePicker() }
@@ -173,19 +169,17 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun addMinutes(minutes: Int) {
-        if (calendar == null) {
-            calendar = Calendar.getInstance()
-        }
-        calendar?.add(Calendar.MINUTE, minutes)
-        updateAlarmTimeText()
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.hour)
+        calendar.set(Calendar.MINUTE, alarmTimePicker.minute)
+        calendar.add(Calendar.MINUTE, minutes)
+        alarmTimePicker.hour = calendar.get(Calendar.HOUR_OF_DAY)
+        alarmTimePicker.minute = calendar.get(Calendar.MINUTE)
     }
 
     private fun populateUi(alarm: Alarm) {
-        calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, alarm.hour)
-            set(Calendar.MINUTE, alarm.minute)
-        }
-        updateAlarmTimeText()
+        alarmTimePicker.hour = alarm.hour
+        alarmTimePicker.minute = alarm.minute
         alarmLabelEditText.setText(alarm.label)
         alarm.selectedDays.forEach { day -> dayPickerGroup.findViewWithTag<Chip>(day)?.isChecked = true }
         luxDismissalSwitch.isChecked = alarm.isLuxDismissalEnabled
@@ -199,28 +193,6 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         updateLuxUiState(alarm.isLuxDismissalEnabled)
     }
 
-    private fun showTimePickerDialog() {
-        val cal = calendar ?: Calendar.getInstance()
-        TimePickerDialog(
-            this,
-            { _, hour, minute ->
-                if (calendar == null) {
-                    calendar = Calendar.getInstance()
-                }
-                calendar?.set(Calendar.HOUR_OF_DAY, hour)
-                calendar?.set(Calendar.MINUTE, minute)
-                updateAlarmTimeText()
-            },
-            cal.get(Calendar.HOUR_OF_DAY),
-            cal.get(Calendar.MINUTE),
-            false
-        ).show()
-    }
-
-    private fun updateAlarmTimeText() {
-        calendar?.let { alarmTimeText.text = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(it.time) }
-    }
-
     private fun openRingtonePicker() {
         val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
             putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -231,10 +203,6 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun saveAlarm() {
-        if (calendar == null) {
-            Toast.makeText(this, "Please set a time.", Toast.LENGTH_SHORT).show()
-            return
-        }
         if (pinEnabledSwitch.isChecked && pinEditText.text.isBlank()) {
             Toast.makeText(this, "Please enter a PIN to enable this feature.", Toast.LENGTH_SHORT).show()
             return
@@ -253,8 +221,8 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         lifecycleScope.launch {
             val alarm = Alarm(
                 id = alarmId ?: 0,
-                hour = calendar!!.get(Calendar.HOUR_OF_DAY),
-                minute = calendar!!.get(Calendar.MINUTE),
+                hour = alarmTimePicker.hour,
+                minute = alarmTimePicker.minute,
                 label = alarmLabelEditText.text.toString(),
                 selectedDays = selectedDays,
                 isLuxDismissalEnabled = luxDismissalSwitch.isChecked,

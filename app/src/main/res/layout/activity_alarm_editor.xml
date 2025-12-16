@@ -26,15 +26,14 @@
             android:padding="16dp"
             tools:context=".AlarmEditorActivity">
 
-            <TextView
-                android:id="@+id/alarmTimeText"
+            <TimePicker
+                android:id="@+id/alarmTimePicker"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Set Time"
-                android:textSize="48sp"
+                android:timePickerMode="spinner"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                app:layout_constraintEnd_toEndOf="parent" />
 
             <Button
                 android:id="@+id/add5minButton"
@@ -47,7 +46,7 @@
                 app:layout_constraintEnd_toStartOf="@+id/add10minButton"
                 app:layout_constraintHorizontal_chainStyle="spread"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/alarmTimeText" />
+                app:layout_constraintTop_toBottomOf="@+id/alarmTimePicker" />
 
             <Button
                 android:id="@+id/add10minButton"
