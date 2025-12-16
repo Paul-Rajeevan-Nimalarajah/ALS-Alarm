@@ -1,7 +1,5 @@
 package com.sldevelopers.alsalarm
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
@@ -34,12 +32,14 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.android.material.textfield.TextInputEditText
 import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import android.app.AlarmManager
 
 class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
 
@@ -66,6 +66,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var ringtoneButton: Button
     private lateinit var pinEnabledSwitch: SwitchMaterial
     private lateinit var pinEditText: EditText
+    private lateinit var alarmLabelEditText: TextInputEditText
 
     private val ringtonePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -124,6 +125,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         ringtoneButton = findViewById(R.id.ringtoneButton)
         pinEnabledSwitch = findViewById(R.id.pinEnabledSwitch)
         pinEditText = findViewById(R.id.pinEditText)
+        alarmLabelEditText = findViewById(R.id.alarmLabelEditText)
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
@@ -142,6 +144,11 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         ringtoneButton.setOnClickListener { openRingtonePicker() }
         pinEnabledSwitch.setOnCheckedChangeListener { _, isChecked -> updatePinUiState(isChecked) }
         luxDismissalSwitch.setOnCheckedChangeListener { _, isChecked -> updateLuxUiState(isChecked) }
+
+        findViewById<Button>(R.id.add5minButton).setOnClickListener { addMinutes(5) }
+        findViewById<Button>(R.id.add10minButton).setOnClickListener { addMinutes(10) }
+        findViewById<Button>(R.id.add20minButton).setOnClickListener { addMinutes(20) }
+        findViewById<Button>(R.id.add40minButton).setOnClickListener { addMinutes(40) }
 
         luxThresholdSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -165,12 +172,21 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         })
     }
 
+    private fun addMinutes(minutes: Int) {
+        if (calendar == null) {
+            calendar = Calendar.getInstance()
+        }
+        calendar?.add(Calendar.MINUTE, minutes)
+        updateAlarmTimeText()
+    }
+
     private fun populateUi(alarm: Alarm) {
         calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, alarm.hour)
             set(Calendar.MINUTE, alarm.minute)
         }
         updateAlarmTimeText()
+        alarmLabelEditText.setText(alarm.label)
         alarm.selectedDays.forEach { day -> dayPickerGroup.findViewWithTag<Chip>(day)?.isChecked = true }
         luxDismissalSwitch.isChecked = alarm.isLuxDismissalEnabled
         luxThresholdSeekBar.progress = alarm.dismissLux
@@ -239,6 +255,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
                 id = alarmId ?: 0,
                 hour = calendar!!.get(Calendar.HOUR_OF_DAY),
                 minute = calendar!!.get(Calendar.MINUTE),
+                label = alarmLabelEditText.text.toString(),
                 selectedDays = selectedDays,
                 isLuxDismissalEnabled = luxDismissalSwitch.isChecked,
                 dismissLux = luxThresholdSeekBar.progress,
@@ -254,7 +271,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
                 alarmViewModel.update(alarm)
                 alarm.id
             }
-            scheduleAlarm(alarm.copy(id = newId))
+            AlarmScheduler.schedule(this@AlarmEditorActivity, alarm.copy(id = newId))
             Toast.makeText(this@AlarmEditorActivity, "Alarm saved", Toast.LENGTH_SHORT).show()
             finish()
         }
@@ -263,67 +280,12 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private fun deleteAlarm() {
         currentAlarm?.let {
             lifecycleScope.launch {
-                cancelScheduledAlarm(it)
+                AlarmScheduler.cancel(this@AlarmEditorActivity, it)
                 alarmViewModel.delete(it)
                 Toast.makeText(this@AlarmEditorActivity, "Alarm deleted", Toast.LENGTH_SHORT).show()
                 finish()
             }
         }
-    }
-
-    private fun scheduleAlarm(alarm: Alarm) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java).apply {
-            putExtra("alarm_id", alarm.id)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(this, alarm.id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, alarm.hour)
-            set(Calendar.MINUTE, alarm.minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val nextTriggerTime = calculateNextTriggerTime(cal, alarm.selectedDays)
-
-        if (nextTriggerTime != -1L) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTriggerTime, pendingIntent)
-        }
-    }
-
-    private fun cancelScheduledAlarm(alarm: Alarm) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(this, alarm.id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        alarmManager.cancel(pendingIntent)
-    }
-
-    private fun calculateNextTriggerTime(cal: Calendar, selectedDays: Set<String>): Long {
-        if (selectedDays.isEmpty()) { // One-time alarm
-            return if (cal.timeInMillis > System.currentTimeMillis()) cal.timeInMillis else cal.apply { add(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
-        }
-
-        val dayMapping = mapOf("Su" to 1, "M" to 2, "Tu" to 3, "W" to 4, "Th" to 5, "F" to 6, "Sa" to 7)
-        val calendarDays = selectedDays.mapNotNull { dayMapping[it] }.sorted()
-        val now = Calendar.getInstance()
-
-        for (i in 0..7) {
-            val nextDay = now.clone() as Calendar
-            nextDay.add(Calendar.DAY_OF_YEAR, i)
-            val dayOfWeek = nextDay.get(Calendar.DAY_OF_WEEK)
-
-            if (dayOfWeek in calendarDays) {
-                val nextAlarm = cal.clone() as Calendar
-                nextAlarm.set(Calendar.YEAR, nextDay.get(Calendar.YEAR))
-                nextAlarm.set(Calendar.MONTH, nextDay.get(Calendar.MONTH))
-                nextAlarm.set(Calendar.DAY_OF_MONTH, nextDay.get(Calendar.DAY_OF_MONTH))
-
-                if (nextAlarm.timeInMillis > now.timeInMillis) {
-                    return nextAlarm.timeInMillis
-                }
-            }
-        }
-        return -1L // Should not happen
     }
 
     private fun updatePinUiState(pinEnabled: Boolean) {
@@ -339,7 +301,32 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun checkAndRequestPermissions(): Boolean {
-        // ... (permission checking logic is correct)
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            Intent().also { intent ->
+                intent.action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                startActivity(intent)
+            }
+            return false
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return false
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Permission Required")
+                .setMessage("This app needs permission to appear on top to display the alarm screen. Please grant this permission in the app settings.")
+                .setPositiveButton("Go to Settings") { _, _ ->
+                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                    startActivity(intent)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+            return false
+        }
         return true
     }
 

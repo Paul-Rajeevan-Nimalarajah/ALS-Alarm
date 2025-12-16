@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -30,6 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     private val selectedAlarms = mutableListOf<Alarm>()
     private var isSelectionMode = false
+    private var isSortedByTime = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,16 +44,19 @@ class MainActivity : AppCompatActivity() {
 
         val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+                isSortedByTime = false // Switch to custom order on drag
                 val fromPosition = viewHolder.adapterPosition
                 val toPosition = target.adapterPosition
-                val alarms = adapter.currentList.toMutableList()
-                Collections.swap(alarms, fromPosition, toPosition)
-                adapter.submitList(alarms)
-                updateAlarmOrder(alarms)
+                adapter.moveItem(fromPosition, toPosition)
                 return true
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                updateAlarmOrder(adapter.getAlarms())
+            }
 
             override fun isLongPressDragEnabled(): Boolean {
                 return false // We will start drag on touch of the handle
@@ -80,10 +83,20 @@ class MainActivity : AppCompatActivity() {
                 }
                 toggleSelection(alarm)
             },
+            onAlarmEnabledToggled = { alarm, isEnabled ->
+                alarm.isEnabled = isEnabled
+                alarmViewModel.update(alarm)
+                if (isEnabled) {
+                    AlarmScheduler.schedule(this, alarm)
+                } else {
+                    AlarmScheduler.cancel(this, alarm)
+                }
+            },
             isSelectionMode = { isSelectionMode },
             isSelected = { alarm -> selectedAlarms.contains(alarm) },
             onStartDrag = { viewHolder ->
                 if (!isSelectionMode) {
+                    isSortedByTime = false // Switch to custom order on drag
                     itemTouchHelper.startDrag(viewHolder)
                 }
             }
@@ -100,20 +113,46 @@ class MainActivity : AppCompatActivity() {
         alarmViewModel = ViewModelProvider(this, viewModelFactory).get(AlarmViewModel::class.java)
 
         alarmViewModel.allAlarms.observe(this) { alarms ->
-            adapter.submitList(alarms)
+            val displayAlarms = if (isSortedByTime) {
+                alarms.sortedWith(compareBy({ it.hour }, { it.minute }))
+            } else {
+                alarms.sortedBy { it.displayOrder }
+            }
+            adapter.setData(displayAlarms)
+
             if (alarms.isEmpty()) {
                 recyclerView.visibility = View.GONE
                 emptyView.visibility = View.VISIBLE
+                adapter.nextAlarmId = null
             } else {
                 recyclerView.visibility = View.VISIBLE
                 emptyView.visibility = View.GONE
+                updateNextAlarmHighlight(alarms)
             }
         }
 
         deleteButton.setOnClickListener {
-            selectedAlarms.forEach { alarmViewModel.delete(it) }
+            selectedAlarms.forEach { 
+                AlarmScheduler.cancel(this, it)
+                alarmViewModel.delete(it) 
+            }
             exitSelectionMode()
         }
+    }
+
+    private fun updateNextAlarmHighlight(alarms: List<Alarm>) {
+        var nextAlarm: Alarm? = null
+        var nextAlarmTime = Long.MAX_VALUE
+
+        alarms.forEach { alarm ->
+            val triggerTime = AlarmScheduler.calculateNextTriggerTime(alarm)
+            if (triggerTime != -1L && triggerTime < nextAlarmTime) {
+                nextAlarmTime = triggerTime
+                nextAlarm = alarm
+            }
+        }
+        adapter.nextAlarmId = nextAlarm?.id
+        adapter.notifyDataSetChanged()
     }
 
     private fun updateAlarmOrder(alarms: List<Alarm>) {
@@ -150,6 +189,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
         menu?.findItem(R.id.action_add_alarm)?.isVisible = !isSelectionMode
+        menu?.findItem(R.id.action_sort)?.isVisible = !isSelectionMode
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -158,6 +198,18 @@ class MainActivity : AppCompatActivity() {
             R.id.action_add_alarm -> {
                 val intent = Intent(this, AlarmEditorActivity::class.java)
                 startActivity(intent)
+                true
+            }
+            R.id.action_sort -> {
+                isSortedByTime = !isSortedByTime
+                alarmViewModel.allAlarms.value?.let { alarms ->
+                    val displayAlarms = if (isSortedByTime) {
+                        alarms.sortedWith(compareBy({ it.hour }, { it.minute }))
+                    } else {
+                        alarms.sortedBy { it.displayOrder }
+                    }
+                    adapter.setData(displayAlarms)
+                }
                 true
             }
             else -> super.onOptionsItemSelected(item)

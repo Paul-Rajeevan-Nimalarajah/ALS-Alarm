@@ -6,6 +6,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.sldevelopers.alsalarm.data.AlarmDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class AlarmReceiver : BroadcastReceiver() {
@@ -14,7 +18,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getIntExtra("alarm_id", -1)
         if (alarmId == -1) return
 
-        // Start the alarm service to play the sound
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra("alarm_id", alarmId)
         }
@@ -24,66 +27,55 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
-        // Reschedule the next alarm if it's a repeating one
         rescheduleNextAlarm(context, alarmId)
     }
 
     private fun rescheduleNextAlarm(context: Context, alarmId: Int) {
-        val sharedPrefs = context.getSharedPreferences("AlarmSettings", Context.MODE_PRIVATE)
-        val selectedDays = sharedPrefs.getStringSet("selectedDays", emptySet()) ?: emptySet()
-        val hour = sharedPrefs.getInt("alarmHour", -1)
-        val minute = sharedPrefs.getInt("alarmMinute", -1)
+        CoroutineScope(Dispatchers.IO).launch {
+            val alarmDao = AlarmDatabase.getDatabase(context).alarmDao()
+            val alarm = alarmDao.getAlarmById(alarmId)
+            if (alarm != null && alarm.selectedDays.isNotEmpty()) {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, AlarmReceiver::class.java).apply {
+                    putExtra("alarm_id", alarm.id)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(context, alarm.id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        if (selectedDays.isEmpty() || hour == -1 || minute == -1) {
-            return // Not a repeating alarm
-        }
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, alarm.hour)
+                    set(Calendar.MINUTE, alarm.minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val nextTriggerTime = calculateNextTriggerTime(cal, alarm.selectedDays)
 
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        val nextTriggerTime = calculateNextTriggerTime(cal, selectedDays)
-
-        if (nextTriggerTime != -1L) {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, AlarmReceiver::class.java).apply{
-                putExtra("alarm_id", alarmId)
+                if (nextTriggerTime != -1L) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTriggerTime, pendingIntent)
+                }
             }
-            val pendingIntent = PendingIntent.getBroadcast(context, alarmId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTriggerTime, pendingIntent)
-
-            // Save the next trigger time
-            sharedPrefs.edit().putLong("alarmTimeMillis", nextTriggerTime).apply()
         }
     }
 
     private fun calculateNextTriggerTime(cal: Calendar, selectedDays: Set<String>): Long {
-        if (selectedDays.isEmpty()) return -1L
+        if (selectedDays.isEmpty()) return -1L // This should not happen for repeating alarms
 
         val dayMapping = mapOf("Su" to 1, "M" to 2, "Tu" to 3, "W" to 4, "Th" to 5, "F" to 6, "Sa" to 7)
-        val calendarDays = selectedDays.mapNotNull { dayMapping[it] }.sorted()
+        val calendarDays = selectedDays.mapNotNull { dayMapping[it] }.toSortedSet()
         val now = Calendar.getInstance()
 
-        val baseAlarmTime = cal.clone() as Calendar
+        val tempCal = now.clone() as Calendar
+        tempCal.add(Calendar.DAY_OF_YEAR, 1) // Start checking from tomorrow
 
-        for (i in 0..7) { // Check the next 7 days
-            val nextDay = now.clone() as Calendar
-            nextDay.add(Calendar.DAY_OF_YEAR, i)
-            val dayOfWeek = nextDay.get(Calendar.DAY_OF_WEEK)
-
+        for (i in 0..7) {
+            val dayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK)
             if (dayOfWeek in calendarDays) {
-                val nextAlarm = baseAlarmTime.clone() as Calendar
-                nextAlarm.set(Calendar.YEAR, nextDay.get(Calendar.YEAR))
-                nextAlarm.set(Calendar.MONTH, nextDay.get(Calendar.MONTH))
-                nextAlarm.set(Calendar.DAY_OF_MONTH, nextDay.get(Calendar.DAY_OF_MONTH))
-
-                if (nextAlarm.timeInMillis > now.timeInMillis) {
-                    return nextAlarm.timeInMillis
-                }
+                val potentialAlarm = cal.clone() as Calendar
+                potentialAlarm.set(Calendar.YEAR, tempCal.get(Calendar.YEAR))
+                potentialAlarm.set(Calendar.MONTH, tempCal.get(Calendar.MONTH))
+                potentialAlarm.set(Calendar.DAY_OF_MONTH, tempCal.get(Calendar.DAY_OF_MONTH))
+                return potentialAlarm.timeInMillis
             }
+            tempCal.add(Calendar.DAY_OF_YEAR, 1)
         }
 
         return -1L // Should not happen

@@ -36,13 +36,61 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"/>
 
+            <Button
+                android:id="@+id/add5minButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="4dp"
+                android:text="+5 min"
+                app:layout_constraintEnd_toStartOf="@+id/add10minButton"
+                app:layout_constraintHorizontal_chainStyle="spread"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/alarmTimeText" />
+
+            <Button
+                android:id="@+id/add10minButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:text="+10 min"
+                app:layout_constraintEnd_toStartOf="@+id/add20minButton"
+                app:layout_constraintStart_toEndOf="@+id/add5minButton"
+                app:layout_constraintTop_toTopOf="@+id/add5minButton" />
+
+            <Button
+                android:id="@+id/add20minButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:text="+20 min"
+                app:layout_constraintEnd_toStartOf="@+id/add40minButton"
+                app:layout_constraintStart_toEndOf="@+id/add10minButton"
+                app:layout_constraintTop_toTopOf="@+id/add5minButton" />
+
+            <Button
+                android:id="@+id/add40minButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="+40 min"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/add20minButton"
+                app:layout_constraintTop_toTopOf="@+id/add5minButton" />
+
             <HorizontalScrollView
                 android:id="@+id/dayPickerContainer"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:scrollbars="none"
-                app:layout_constraintTop_toBottomOf="@+id/alarmTimeText"
+                app:layout_constraintTop_toBottomOf="@+id/add5minButton"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
@@ -114,13 +162,33 @@
                 </com.google.android.material.chip.ChipGroup>
             </HorizontalScrollView>
 
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/labelInputLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Label"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/dayPickerContainer">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/alarmLabelEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLength="40"
+                    android:singleLine="true" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/luxDismissalSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="Enable Lux Dismissal"
-                app:layout_constraintTop_toBottomOf="@+id/dayPickerContainer"
+                app:layout_constraintTop_toBottomOf="@+id/labelInputLayout"
                 app:layout_constraintStart_toStartOf="parent" />
 
             <TextView

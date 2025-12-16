@@ -29,6 +29,7 @@ class AlarmViewModel(private val alarmDao: AlarmDao) : ViewModel() {
     }
 
     fun updateAlarms(alarms: List<Alarm>) = viewModelScope.launch {
-        alarms.forEach { alarmDao.update(it) }
+        // Use toList() to create a copy, preventing ConcurrentModificationException
+        alarms.toList().forEach { alarmDao.update(it) }
     }
 }

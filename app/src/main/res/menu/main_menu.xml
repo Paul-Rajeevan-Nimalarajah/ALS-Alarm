@@ -6,4 +6,9 @@
         android:icon="@android:drawable/ic_menu_add"
         android:title="Add Alarm"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_sort"
+        android:icon="@drawable/ic_sort"
+        android:title="Sort"
+        app:showAsAction="ifRoom" />
 </menu>
