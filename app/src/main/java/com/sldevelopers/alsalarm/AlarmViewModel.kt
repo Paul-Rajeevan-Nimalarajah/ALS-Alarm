@@ -27,4 +27,8 @@ class AlarmViewModel(private val alarmDao: AlarmDao) : ViewModel() {
     fun delete(alarm: Alarm) = viewModelScope.launch {
         alarmDao.delete(alarm)
     }
+
+    fun updateAlarms(alarms: List<Alarm>) = viewModelScope.launch {
+        alarms.forEach { alarmDao.update(it) }
+    }
 }

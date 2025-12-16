@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ALSAlarm</string>
+    <string name="drag_handle_description">Drag to reorder</string>
 </resources>

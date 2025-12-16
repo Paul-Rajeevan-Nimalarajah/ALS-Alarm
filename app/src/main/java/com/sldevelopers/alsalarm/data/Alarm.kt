@@ -17,5 +17,6 @@ data class Alarm(
     val volume: Int = 80,
     val ringtoneUri: String? = null,
     val isPinEnabled: Boolean = false,
-    val pin: String? = null
+    val pin: String? = null,
+    var displayOrder: Int = 0
 )

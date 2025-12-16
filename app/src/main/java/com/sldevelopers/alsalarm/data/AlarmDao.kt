@@ -15,7 +15,7 @@ interface AlarmDao {
     @Delete
     suspend fun delete(alarm: Alarm)
 
-    @Query("SELECT * FROM alarms")
+    @Query("SELECT * FROM alarms ORDER BY displayOrder")
     fun getAllAlarms(): LiveData<List<Alarm>>
 
     @Query("SELECT * FROM alarms WHERE id = :alarmId")
