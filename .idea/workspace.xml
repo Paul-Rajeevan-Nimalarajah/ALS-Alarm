@@ -7,7 +7,6 @@
     <layouts>
       <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_alarm_editor.xml">
         <config>
-          <state>Portrait</state>
           <theme>@style/Theme.ALSAlarm</theme>
         </config>
       </layout>
@@ -39,9 +38,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="336daed3-9385-40a2-8aa6-675df5db7f07" name="Changes" comment="Hello world">
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/sldevelopers/alsalarm/AlarmScreenActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/sldevelopers/alsalarm/AlarmScreenActivity.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

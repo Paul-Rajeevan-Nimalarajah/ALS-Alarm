@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
+import java.util.concurrent.TimeUnit
 
 class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
 
@@ -45,6 +46,14 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         )
 
         setContentView(R.layout.activity_alarm_screen)
+
+        val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
+        val viewModelFactory = AlarmViewModelFactory(alarmDao)
+        alarmViewModel = ViewModelProvider(this, viewModelFactory)[AlarmViewModel::class.java]
+
+        alarmViewModel.allAlarms.observe(this) { alarms ->
+            showNextAlarmToast(alarms)
+        }
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
@@ -98,15 +107,43 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    private fun showNextAlarmToast(alarms: List<Alarm>) {
+        var nextAlarm: Alarm? = null
+        var nextAlarmTime = Long.MAX_VALUE
+
+        alarms.forEach { alarm ->
+            if (alarm.isEnabled) {
+                val triggerTime = AlarmScheduler.calculateNextTriggerTime(alarm)
+                if (triggerTime != -1L && triggerTime < nextAlarmTime) {
+                    nextAlarmTime = triggerTime
+                    nextAlarm = alarm
+                }
+            }
+        }
+
+        if (nextAlarm != null) {
+            val now = System.currentTimeMillis()
+            val diff = nextAlarmTime - now
+            if (diff > 0) {
+                val days = TimeUnit.MILLISECONDS.toDays(diff)
+                val hours = TimeUnit.MILLISECONDS.toHours(diff) % 24
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+                val dayString = if (days > 0) "$days day(s), " else ""
+                Toast.makeText(
+                    this,
+                    "Next alarm in $dayString$hours hour(s) and $minutes minute(s)",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
     private fun loadAlarmFromDatabase(alarmId: Int, isPreview: Boolean = false) {
         if (alarmId == -1) {
             Log.e("AlarmScreenActivity", "No alarm ID passed to activity")
             finish()
             return
         }
-        val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
-        val viewModelFactory = AlarmViewModelFactory(alarmDao)
-        alarmViewModel = ViewModelProvider(this, viewModelFactory)[AlarmViewModel::class.java]
 
         alarmViewModel.getAlarm(alarmId).observe(this) { alarm ->
             if (alarm != null) {
