@@ -33,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     private val selectedAlarms = mutableListOf<Alarm>()
     private var isSelectionMode = false
     private var isSortedByTime = false
-    private var isFirstLoad = true
 
     private val sharedPrefs by lazy { getSharedPreferences("AlarmSkippedState", Context.MODE_PRIVATE) }
     private val skippedAlarms = mutableMapOf<Int, Long>()
@@ -183,11 +182,6 @@ class MainActivity : AppCompatActivity() {
                 emptyView.visibility = View.GONE
                 updateNextAlarmHighlight(alarms)
             }
-
-            if (isFirstLoad) {
-                showNextAlarmToast(alarms)
-                isFirstLoad = false
-            }
         }
 
         deleteButton.setOnClickListener {
@@ -201,9 +195,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh adapter data on resume to re-evaluate skipped state
-        alarmViewModel.allAlarms.value?.let { adapter.setData(it) }
-        updateNextAlarmHighlight(adapter.getAlarms())
+        // Refresh adapter data on resume to re-evaluate skipped state and show toast
+        alarmViewModel.allAlarms.value?.let { alarms ->
+            adapter.setData(alarms)
+            updateNextAlarmHighlight(alarms)
+            showNextAlarmToast(alarms)
+        }
     }
 
     private fun saveSkippedAlarm(alarmId: Int, skippedUntil: Long) {
