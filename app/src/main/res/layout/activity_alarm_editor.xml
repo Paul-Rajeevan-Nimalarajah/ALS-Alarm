@@ -183,12 +183,24 @@
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/luxDismissalSwitch"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="Enable Lux Dismissal"
-                app:layout_constraintTop_toBottomOf="@+id/labelInputLayout"
-                app:layout_constraintStart_toStartOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/lux_editor_info_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/labelInputLayout" />
+
+            <ImageButton
+                android:id="@+id/lux_editor_info_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="LUX dismissal help"
+                android:src="@drawable/ic_help"
+                app:layout_constraintBottom_toBottomOf="@+id/luxDismissalSwitch"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/luxDismissalSwitch" />
 
             <TextView
                 android:id="@+id/luxValueText"
@@ -259,12 +271,24 @@
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/pinEnabledSwitch"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="Enable PIN Dismissal"
-                app:layout_constraintTop_toBottomOf="@+id/ringtoneButton"
-                app:layout_constraintStart_toStartOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/pin_editor_info_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/ringtoneButton" />
+
+            <ImageButton
+                android:id="@+id/pin_editor_info_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="PIN dismissal help"
+                android:src="@drawable/ic_help"
+                app:layout_constraintBottom_toBottomOf="@+id/pinEnabledSwitch"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/pinEnabledSwitch" />
 
             <EditText
                 android:id="@+id/pinEditText"

@@ -18,40 +18,72 @@
         tools:text="Alarm Label" />
 
     <LinearLayout
-        android:id="@+id/lux_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:visibility="visible">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/current_lux_label"
+        <LinearLayout
+            android:id="@+id/lux_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <TextView
+                android:id="@+id/current_lux_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Current Lux: 0"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/required_lux_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Required Lux: 0"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/lux_info_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Current Lux: 0"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="18sp" />
-
-        <TextView
-            android:id="@+id/required_lux_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Required Lux: 0"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="18sp" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="LUX dismissal help"
+            android:src="@drawable/ic_help" />
     </LinearLayout>
 
-    <EditText
-        android:id="@+id/pinEditText"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:hint="Enter PIN to dismiss"
-        android:inputType="numberPassword"
-        android:textColor="?android:attr/textColorPrimary"
-        android:textColorHint="?android:attr/textColorHint" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/pinEditText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Enter PIN to dismiss"
+            android:inputType="numberPassword"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textColorHint="?android:attr/textColorHint" />
+
+        <ImageButton
+            android:id="@+id/pin_info_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="PIN dismissal help"
+            android:src="@drawable/ic_help" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/dismissButton"

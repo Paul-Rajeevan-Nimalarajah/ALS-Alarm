@@ -1,6 +1,7 @@
 package com.sldevelopers.alsalarm
 
 import android.app.AlarmManager
+import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -8,12 +9,16 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -35,6 +40,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var luxContainer: LinearLayout
     private lateinit var currentLuxLabel: TextView
     private lateinit var requiredLuxLabel: TextView
+    private lateinit var vibrator: Vibrator
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +52,8 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         )
 
         setContentView(R.layout.activity_alarm_screen)
+
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
         val viewModelFactory = AlarmViewModelFactory(alarmDao)
@@ -62,6 +70,16 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         luxContainer = findViewById(R.id.lux_container)
         currentLuxLabel = findViewById(R.id.current_lux_label)
         requiredLuxLabel = findViewById(R.id.required_lux_label)
+
+        findViewById<ImageButton>(R.id.lux_info_button).setOnClickListener {
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            showInfoDialog("LUX Dismissal", "The alarm will only dismiss when the room's brightness (LUX) reaches the required level.")
+        }
+
+        findViewById<ImageButton>(R.id.pin_info_button).setOnClickListener {
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            showInfoDialog("PIN Dismissal", "You must enter the correct PIN to dismiss the alarm.")
+        }
 
         val isPreview = intent.getBooleanExtra("is_preview", false)
         val alarmId = intent.getIntExtra("alarm_id", -1)
@@ -105,6 +123,14 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             }
             loadAlarmFromDatabase(alarmId)
         }
+    }
+
+    private fun showInfoDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun showNextAlarmToast(alarms: List<Alarm>) {
@@ -166,11 +192,16 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         val dismissButton = findViewById<Button>(R.id.dismissButton)
         val pinText = findViewById<EditText>(R.id.pinEditText)
         val snoozeButtonContainer = findViewById<LinearLayout>(R.id.snooze_button_container)
+        val luxInfoButton = findViewById<ImageButton>(R.id.lux_info_button)
+        val pinInfoButton = findViewById<ImageButton>(R.id.pin_info_button)
 
         if (isPreview) {
             snoozeButtonContainer.visibility = View.GONE
             dismissButton.text = "Close Preview"
-            dismissButton.setOnClickListener { finish() }
+            dismissButton.setOnClickListener {
+                vibrate(VibrationEffect.EFFECT_HEAVY_CLICK)
+                finish()
+            }
         } else {
             val isSnoozed = intent.getBooleanExtra("is_snoozed", false)
             if (isSnoozed) {
@@ -184,6 +215,7 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             }
 
             dismissButton.setOnClickListener {
+                vibrate(VibrationEffect.EFFECT_HEAVY_CLICK)
                 if (!alarm.isPinEnabled || pinText.text.toString() == alarm.pin) {
                     stopService(Intent(this, AlarmService::class.java))
                     if (alarm.selectedDays.isEmpty()) {
@@ -198,9 +230,11 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         }
 
         pinText.visibility = if (alarm.isPinEnabled) View.VISIBLE else View.GONE
+        pinInfoButton.visibility = if (alarm.isPinEnabled) View.VISIBLE else View.GONE
 
         if (alarm.isLuxDismissalEnabled) {
             luxContainer.visibility = View.VISIBLE
+            luxInfoButton.visibility = View.VISIBLE
             requiredLuxLabel.text = "Required Lux: ${alarm.dismissLux}"
             dismissButton.isEnabled = false
             if (lightSensor == null) {
@@ -211,11 +245,13 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
             }
         } else {
             luxContainer.visibility = View.GONE
+            luxInfoButton.visibility = View.GONE
             dismissButton.isEnabled = true
         }
     }
 
     private fun snooze(minutes: Int) {
+        vibrate(VibrationEffect.EFFECT_CLICK)
         currentAlarm?.let { alarm ->
             stopService(Intent(this, AlarmService::class.java))
 
@@ -291,6 +327,12 @@ class AlarmScreenActivity : AppCompatActivity(), SensorEventListener {
         // Prevent accidental dismissal
         if (intent.getBooleanExtra("is_preview", false)) {
             super.onBackPressed()
+        }
+    }
+
+    private fun vibrate(effect: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vibrator.vibrate(VibrationEffect.createPredefined(effect))
         }
     }
 }

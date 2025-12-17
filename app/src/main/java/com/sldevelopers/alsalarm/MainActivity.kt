@@ -3,31 +3,34 @@ package com.sldevelopers.alsalarm
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
 import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
+import com.sldevelopers.alsalarm.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityMainBinding
     private lateinit var alarmViewModel: AlarmViewModel
-    private lateinit var emptyView: TextView
     private lateinit var adapter: AlarmAdapter
-    private lateinit var deleteButtonContainer: LinearLayout
     private lateinit var itemTouchHelper: ItemTouchHelper
 
     private val selectedAlarms = mutableListOf<Alarm>()
@@ -41,17 +44,21 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         loadSkippedAlarms()
 
-        val toolbar: Toolbar = findViewById(R.id.toolbar)
-        setSupportActionBar(toolbar)
+        setSupportActionBar(binding.toolbar)
+        binding.toolbar.setOnClickListener {
+            vibrate()
+            val url = "https://github.com/Paul-Rajeevan-Nimalarajah"
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = Uri.parse(url)
+            startActivity(intent)
+        }
 
-        deleteButtonContainer = findViewById(R.id.delete_button_container)
-        val deleteButton: Button = findViewById(R.id.delete_button)
-
-        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0) {
+        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
                 isSortedByTime = false // Switch to custom order on drag
                 val fromPosition = viewHolder.adapterPosition
@@ -60,7 +67,18 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val alarm = adapter.getAlarms()[position]
+                alarmViewModel.delete(alarm)
+                Snackbar.make(binding.root, "Alarm deleted", Snackbar.LENGTH_LONG)
+                    .setAction("Undo") { 
+                        lifecycleScope.launch {
+                            alarmViewModel.insert(alarm) 
+                        }
+                    }
+                    .show()
+            }
 
             override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
                 super.clearView(recyclerView, viewHolder)
@@ -87,7 +105,7 @@ class MainActivity : AppCompatActivity() {
             onAlarmLongClicked = { alarm ->
                 if (!isSelectionMode) {
                     isSelectionMode = true
-                    deleteButtonContainer.visibility = View.VISIBLE
+                    binding.deleteButtonContainer.visibility = View.VISIBLE
                     invalidateOptionsMenu() // Hide the add alarm button
                 }
                 toggleSelection(alarm)
@@ -98,6 +116,7 @@ class MainActivity : AppCompatActivity() {
                         .setTitle("Disable Repeating Alarm")
                         .setMessage("Do you want to skip the next alarm or disable it permanently?")
                         .setPositiveButton("Disable") { _, _ ->
+                            vibrate()
                             alarm.isEnabled = false
                             skippedAlarms.remove(alarm.id)
                             removeSkippedAlarm(alarm.id)
@@ -121,6 +140,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         .show()
                 } else {
+                    vibrate()
                     alarm.isEnabled = isEnabled
                     skippedAlarms.remove(alarm.id)
                     removeSkippedAlarm(alarm.id)
@@ -144,11 +164,9 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        val recyclerView = findViewById<RecyclerView>(R.id.alarmsRecyclerView)
-        emptyView = findViewById(R.id.empty_view)
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        itemTouchHelper.attachToRecyclerView(recyclerView)
+        binding.alarmsRecyclerView.adapter = adapter
+        binding.alarmsRecyclerView.layoutManager = LinearLayoutManager(this)
+        itemTouchHelper.attachToRecyclerView(binding.alarmsRecyclerView)
 
         val alarmDao = AlarmDatabase.getDatabase(application).alarmDao()
         val viewModelFactory = AlarmViewModelFactory(alarmDao)
@@ -172,15 +190,15 @@ class MainActivity : AppCompatActivity() {
             } else {
                 alarms.sortedBy { it.displayOrder }
             }
-            adapter.setData(displayAlarms)
+            adapter.submitList(displayAlarms)
 
             if (alarms.isEmpty()) {
-                recyclerView.visibility = View.GONE
-                emptyView.visibility = View.VISIBLE
+                binding.alarmsRecyclerView.visibility = View.GONE
+                binding.emptyView.visibility = View.VISIBLE
                 adapter.nextAlarmId = null
             } else {
-                recyclerView.visibility = View.VISIBLE
-                emptyView.visibility = View.GONE
+                binding.alarmsRecyclerView.visibility = View.VISIBLE
+                binding.emptyView.visibility = View.GONE
                 updateNextAlarmHighlight(alarms)
             }
 
@@ -190,7 +208,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        deleteButton.setOnClickListener {
+        binding.deleteButton.setOnClickListener {
+            vibrate()
             selectedAlarms.forEach { 
                 AlarmScheduler.cancel(this, it)
                 alarmViewModel.delete(it) 
@@ -203,7 +222,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Refresh adapter data on resume to re-evaluate skipped state and show toast
         alarmViewModel.allAlarms.value?.let { alarms ->
-            adapter.setData(alarms)
+            adapter.submitList(alarms)
             updateNextAlarmHighlight(alarms)
             if (!isFirstLoad) {
                 showNextAlarmToast(alarms)
@@ -312,7 +331,7 @@ class MainActivity : AppCompatActivity() {
     private fun exitSelectionMode() {
         isSelectionMode = false
         selectedAlarms.clear()
-        deleteButtonContainer.visibility = View.GONE
+        binding.deleteButtonContainer.visibility = View.GONE
         invalidateOptionsMenu() // Show the add alarm button again
         adapter.notifyDataSetChanged()
     }
@@ -329,6 +348,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        vibrate()
         return when (item.itemId) {
             R.id.action_add_alarm -> {
                 val intent = Intent(this, AlarmEditorActivity::class.java)
@@ -343,7 +363,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         alarms.sortedBy { it.displayOrder }
                     }
-                    adapter.setData(displayAlarms)
+                    adapter.submitList(displayAlarms)
                     updateNextAlarmHighlight(displayAlarms)
                 }
                 true
@@ -357,6 +377,16 @@ class MainActivity : AppCompatActivity() {
             exitSelectionMode()
         } else {
             super.onBackPressed()
+        }
+    }
+
+    private fun vibrate() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            //deprecated in API 26 
+            vibrator.vibrate(50)
         }
     }
 }

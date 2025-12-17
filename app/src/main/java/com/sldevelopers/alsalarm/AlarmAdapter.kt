@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.sldevelopers.alsalarm.data.Alarm
@@ -23,9 +25,8 @@ class AlarmAdapter(
     private val isSelectionMode: () -> Boolean,
     private val isSelected: (Alarm) -> Boolean,
     private val onStartDrag: (RecyclerView.ViewHolder) -> Unit
-) : RecyclerView.Adapter<AlarmAdapter.AlarmViewHolder>() {
+) : ListAdapter<Alarm, AlarmAdapter.AlarmViewHolder>(AlarmDiffCallback()) {
 
-    private val alarms = mutableListOf<Alarm>()
     var nextAlarmId: Int? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AlarmViewHolder {
@@ -33,7 +34,7 @@ class AlarmAdapter(
         holder.alarmEnabledSwitch.setOnCheckedChangeListener { _, isChecked ->
             val position = holder.adapterPosition
             if (position != RecyclerView.NO_POSITION) {
-                val alarm = alarms[position]
+                val alarm = getItem(position)
                 // Only trigger listener when the user interacts with the switch
                 if (holder.alarmEnabledSwitch.isPressed) {
                     onAlarmEnabledToggled(alarm, isChecked)
@@ -45,7 +46,7 @@ class AlarmAdapter(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onBindViewHolder(holder: AlarmViewHolder, position: Int) {
-        val current = alarms[position]
+        val current = getItem(position)
         holder.bind(current, isSelected(current), current.id == nextAlarmId)
         holder.itemView.setOnClickListener {
             if (isSelectionMode()) {
@@ -66,22 +67,14 @@ class AlarmAdapter(
         }
     }
 
-    override fun getItemCount(): Int = alarms.size
-
-    @SuppressLint("NotifyDataSetChanged")
-    fun setData(newAlarms: List<Alarm>) {
-        this.alarms.clear()
-        this.alarms.addAll(newAlarms)
-        notifyDataSetChanged()
-    }
-
     fun getAlarms(): List<Alarm> {
-        return alarms
+        return currentList
     }
 
     fun moveItem(from: Int, to: Int) {
-        Collections.swap(alarms, from, to)
-        notifyItemMoved(from, to)
+        val list = currentList.toMutableList()
+        Collections.swap(list, from, to)
+        submitList(list)
     }
 
     class AlarmViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -133,5 +126,15 @@ class AlarmAdapter(
                 return AlarmViewHolder(view)
             }
         }
+    }
+}
+
+class AlarmDiffCallback : DiffUtil.ItemCallback<Alarm>() {
+    override fun areItemsTheSame(oldItem: Alarm, newItem: Alarm): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: Alarm, newItem: Alarm): Boolean {
+        return oldItem == newItem
     }
 }

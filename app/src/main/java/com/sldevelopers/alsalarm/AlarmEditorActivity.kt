@@ -1,5 +1,7 @@
 package com.sldevelopers.alsalarm
 
+import android.app.AlarmManager
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,6 +13,8 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
@@ -18,11 +22,12 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.TimePicker
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
@@ -36,8 +41,6 @@ import com.sldevelopers.alsalarm.data.Alarm
 import com.sldevelopers.alsalarm.data.AlarmDatabase
 import kotlinx.coroutines.launch
 import java.util.Calendar
-import android.app.AlarmManager
-import android.widget.TimePicker
 import java.util.concurrent.TimeUnit
 
 class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
@@ -49,6 +52,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var alarmViewModel: AlarmViewModel
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
+    private lateinit var vibrator: Vibrator
 
     // Views
     private lateinit var alarmTimePicker: TimePicker
@@ -88,6 +92,8 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         initializeViews()
         initializeViewModel()
@@ -138,12 +144,51 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setListeners() {
-        saveAlarmButton.setOnClickListener { if (checkAndRequestPermissions()) saveAlarm() }
-        deleteAlarmButton.setOnClickListener { deleteAlarm() }
-        previewAlarmButton.setOnClickListener { previewAlarm() }
-        ringtoneButton.setOnClickListener { openRingtonePicker() }
-        pinEnabledSwitch.setOnCheckedChangeListener { _, isChecked -> updatePinUiState(isChecked) }
-        luxDismissalSwitch.setOnCheckedChangeListener { _, isChecked -> updateLuxUiState(isChecked) }
+        saveAlarmButton.setOnClickListener { 
+            vibrate(VibrationEffect.EFFECT_HEAVY_CLICK)
+            if (checkAndRequestPermissions()) saveAlarm() 
+        }
+        deleteAlarmButton.setOnClickListener { 
+            vibrate(VibrationEffect.EFFECT_HEAVY_CLICK)
+            deleteAlarm() 
+        }
+        previewAlarmButton.setOnClickListener { 
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            previewAlarm() 
+        }
+        ringtoneButton.setOnClickListener { 
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            openRingtonePicker() 
+        }
+        pinEnabledSwitch.setOnCheckedChangeListener { _, isChecked -> 
+            vibrate(VibrationEffect.EFFECT_TICK)
+            updatePinUiState(isChecked) 
+        }
+        luxDismissalSwitch.setOnCheckedChangeListener { _, isChecked -> 
+            vibrate(VibrationEffect.EFFECT_TICK)
+            updateLuxUiState(isChecked) 
+        }
+
+        alarmTimePicker.setOnTimeChangedListener { _, _, _ ->
+            vibrate(VibrationEffect.EFFECT_TICK)
+        }
+
+        for (i in 0 until dayPickerGroup.childCount) {
+            val chip = dayPickerGroup.getChildAt(i) as Chip
+            chip.setOnClickListener {
+                vibrate(VibrationEffect.EFFECT_CLICK)
+            }
+        }
+
+        findViewById<ImageButton>(R.id.lux_editor_info_button).setOnClickListener {
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            showInfoDialog("LUX Dismissal", "The alarm will only dismiss when the room's brightness (LUX) reaches the required level.")
+        }
+
+        findViewById<ImageButton>(R.id.pin_editor_info_button).setOnClickListener {
+            vibrate(VibrationEffect.EFFECT_CLICK)
+            showInfoDialog("PIN Dismissal", "You must enter the correct PIN to dismiss the alarm.")
+        }
 
         findViewById<Button>(R.id.add5minButton).setOnClickListener { addMinutes(5) }
         findViewById<Button>(R.id.add10minButton).setOnClickListener { addMinutes(10) }
@@ -173,6 +218,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun addMinutes(minutes: Int) {
+        vibrate(VibrationEffect.EFFECT_TICK)
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.hour)
         calendar.set(Calendar.MINUTE, alarmTimePicker.minute)
@@ -317,6 +363,14 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         startActivity(intent)
     }
 
+    private fun showInfoDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
     private fun updatePinUiState(pinEnabled: Boolean) {
         pinEditText.isEnabled = pinEnabled
     }
@@ -359,8 +413,15 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
         return true
     }
 
+    private fun vibrate(effect: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vibrator.vibrate(VibrationEffect.createPredefined(effect))
+        }
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
+            vibrate(VibrationEffect.EFFECT_CLICK)
             finish()
             return true
         }
