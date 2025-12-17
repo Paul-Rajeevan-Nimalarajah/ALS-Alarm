@@ -182,7 +182,7 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
 
         findViewById<ImageButton>(R.id.lux_editor_info_button).setOnClickListener {
             vibrate(VibrationEffect.EFFECT_CLICK)
-            showInfoDialog("LUX Dismissal", "The alarm will only dismiss when the room's brightness (LUX) reaches the required level.")
+            showInfoDialog("LUX Dismissal", "The alarm will only dismiss when the room\'s brightness (LUX) reaches the required level.")
         }
 
         findViewById<ImageButton>(R.id.pin_editor_info_button).setOnClickListener {
@@ -421,11 +421,52 @@ class AlarmEditorActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            vibrate(VibrationEffect.EFFECT_CLICK)
-            finish()
+            onBackPressed()
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    override fun onBackPressed() {
+        if (hasUnsavedChanges()) {
+            showUnsavedChangesDialog()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    private fun hasUnsavedChanges(): Boolean {
+        val selectedDays = mutableSetOf<String>()
+        dayPickerGroup.checkedChipIds.forEach { id ->
+            val chip = dayPickerGroup.findViewById<Chip>(id)
+            selectedDays.add(chip.tag.toString())
+        }
+
+        val newAlarm = Alarm(
+            id = alarmId ?: 0,
+            hour = alarmTimePicker.hour,
+            minute = alarmTimePicker.minute,
+            label = alarmLabelEditText.text.toString(),
+            selectedDays = selectedDays,
+            isLuxDismissalEnabled = luxDismissalSwitch.isChecked,
+            dismissLux = luxThresholdSeekBar.progress,
+            volume = volumeSeekBar.progress,
+            ringtoneUri = ringtoneUri,
+            isPinEnabled = pinEnabledSwitch.isChecked,
+            pin = pinEditText.text.toString()
+        )
+
+        return currentAlarm != newAlarm
+    }
+
+    private fun showUnsavedChangesDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Unsaved Changes")
+            .setMessage("You have unsaved changes. Do you want to save them?")
+            .setPositiveButton("Save") { _, _ -> saveAlarm() }
+            .setNegativeButton("Discard") { _, _ -> finish() }
+            .setNeutralButton("Cancel", null)
+            .show()
     }
 
     // SensorEventListener Methods
